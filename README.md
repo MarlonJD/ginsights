@@ -9,7 +9,14 @@ GitHub-style repository insights, locally.
 Homebrew:
 
 ```bash
-brew tap marlonj/tap
+brew tap marlonjd/tap
+brew install ginsights
+```
+
+If Homebrew refuses the tap as untrusted, approve it explicitly:
+
+```bash
+brew trust marlonjd/tap
 brew install ginsights
 ```
 

@@ -4,10 +4,17 @@
 
 ## Homebrew
 
-The intended tap is `marlonj/tap`.
+The intended tap is `marlonjd/tap`.
 
 ```bash
-brew tap marlonj/tap
+brew tap marlonjd/tap
+brew install ginsights
+```
+
+If Homebrew refuses to load the formula from an untrusted tap, trust this tap explicitly and retry:
+
+```bash
+brew trust marlonjd/tap
 brew install ginsights
 ```
 
@@ -20,7 +27,7 @@ packaging/homebrew/Formula/ginsights.rb
 Tap maintenance flow:
 
 ```bash
-git clone https://github.com/marlonj/homebrew-tap.git
+git clone https://github.com/marlonjd/homebrew-tap.git
 mkdir -p homebrew-tap/Formula
 cp packaging/homebrew/Formula/ginsights.rb homebrew-tap/Formula/ginsights.rb
 ```
