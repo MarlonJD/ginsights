@@ -2,134 +2,67 @@
 
 GitHub-style repository insights, locally.
 
-`ginsights` is a Go-first starter for a single-binary local dashboard that analyzes data available from a Git repository and renders a GitHub Insights-like website. It is intentionally scoped to data that can be derived locally: commits, authors, additions/deletions, file churn, language mix, and repository health signals.
+`ginsights` is a single-binary Go CLI that turns local Git history into a static/offline dashboard and JSON snapshot. It shows commits, contributors, code frequency, hot files, language mix, repository health, provenance labels, and optional GitHub API metrics when explicitly requested.
 
-## Why this repo exists
+## Install
 
-This starter is built for Codex-driven development. The repo contains:
-
-- a working Go CLI with `serve`, `build`, `json`, and `doctor` commands;
-- a local static HTML report renderer;
-- a short `AGENTS.md` map rather than a giant instruction blob;
-- versioned product specs, architecture notes, quality rules, and execution plans;
-- mechanical harness checks that Codex can run before and after changes.
-
-## Quick start
-
-After extracting the zip, initialize Git if the folder is not already a repository:
+Homebrew:
 
 ```bash
-./scripts/bootstrap-local-git.sh
+brew tap marlonj/tap
+brew install ginsights
 ```
 
-Then run:
+Shell installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MarlonJD/ginsights/main/scripts/install.sh | bash
+```
+
+The shell installer builds from source and installs to `~/.local/bin/ginsights` by default. More options, including `--install-dir`, `--ref`, tap maintenance, and source builds, are in [docs/INSTALL.md](docs/INSTALL.md).
+
+## Quick Use
+
+```bash
+ginsights serve . --port 43117
+ginsights build . --out report
+ginsights json .
+```
+
+Useful options:
+
+```bash
+ginsights serve . --since 2026-07-01
+ginsights build . --out report --no-cache
+GINSIGHTS_GITHUB_TOKEN=... ginsights build . --out report --github-api owner/name
+ginsights cache-clear .
+```
+
+## Why This Exists
+
+GitHub Insights is useful, but it is hosted and mixes local Git facts with GitHub server-side analytics. `ginsights` makes the local part fast, reproducible, and shareable without uploading code or requiring a token.
+
+It is different from raw `git log` scripts because it provides a stable dashboard, JSON output, health signals, cache behavior, and metric provenance. It is different from SaaS engineering analytics because it does not rank people or require a hosted service. The full rationale is in [docs/WHY.md](docs/WHY.md).
+
+## Product Boundary
+
+Core mode is local/offline. GitHub Traffic data such as views, clones, referrers, and popular content cannot be inferred from local Git history. When `--github-api owner/name` is used, API-sourced metrics are labeled as `github_api` and connector failures degrade into the report instead of breaking local analysis.
+
+## Project Docs
+
+- [Install](docs/INSTALL.md)
+- [Why ginsights exists](docs/WHY.md)
+- [Product specs](docs/product-specs/index.md)
+- [Architecture](ARCHITECTURE.md)
+- [Security](docs/SECURITY.md)
+- [Plans](docs/PLANS.md)
+
+## Development
 
 ```bash
 go test ./...
-go run ./cmd/ginsights serve . --port 43117
-```
-
-Open:
-
-```text
-http://127.0.0.1:43117
-```
-
-Build a static report:
-
-```bash
-go run ./cmd/ginsights build . --out report
-python3 -m http.server 8000 -d report
-```
-
-Export JSON:
-
-```bash
-go run ./cmd/ginsights json . > insights.json
-```
-
-Limit commit-derived insights to a date range:
-
-```bash
-go run ./cmd/ginsights serve . --since 2026-07-01
-go run ./cmd/ginsights build . --out report --since 2026-07-01
-go run ./cmd/ginsights json . --since 2026-07-01 > insights.json
-```
-
-`--since` accepts `YYYY-MM-DD` and includes commits on or after the local start of that day. It filters Git-history metrics such as commits, contributors, code frequency, hot files, and recent commits. Working-tree signals such as languages and repository health still describe the current checkout.
-
-Cache behavior:
-
-```bash
-go run ./cmd/ginsights build . --out report
-go run ./cmd/ginsights build . --out report --no-cache
-go run ./cmd/ginsights cache-clear .
-```
-
-By default, ginsights stores a disposable parsed-commit cache under `.ginsights-cache/` so repeated runs can avoid reparsing unchanged commits. `--no-cache` bypasses it for one run, and `cache-clear` deletes it. The cache is an optimization only; Git remains the source of truth.
-
-Optional GitHub API connector:
-
-```bash
-GINSIGHTS_GITHUB_TOKEN=... go run ./cmd/ginsights build . --out report --github-api owner/name
-```
-
-The connector is opt-in through `--github-api owner/name`. Tokens are read only from `GINSIGHTS_GITHUB_TOKEN` or `GITHUB_TOKEN`; do not pass tokens as CLI flags. Core commands still work offline without the flag. GitHub API metrics are labeled with `github_api` provenance, and connector errors are written into the snapshot without failing the local report.
-
-Validate the agent harness:
-
-```bash
 go run ./cmd/ginsights doctor .
+go run ./cmd/ginsights build . --out /tmp/ginsights-report
 ```
 
-## Current MVP scope
-
-Implemented now:
-
-- Git log collection through the installed `git` binary;
-- contributor stats;
-- weekly commit and code-frequency stats;
-- hot files by churn;
-- simple language byte breakdown;
-- repository health checklist;
-- local server and static report export;
-- `--since YYYY-MM-DD` filtering for Git-history metrics;
-- disposable `.ginsights-cache/` acceleration for repeated analysis;
-- optional `--github-api owner/name` connector with explicit `github_api` provenance;
-- Codex-oriented docs and plans.
-
-Not implemented yet:
-
-- branch filters and interactive date controls in the UI;
-- richer GitHub-like charts;
-- generated screenshots/video verification.
-
-See [`docs/exec-plans/active`](docs/exec-plans/active) for Codex-ready implementation plans.
-
-## Important product boundary
-
-This tool cannot infer GitHub Traffic data from a local repo. Views, unique visitors, clones, referrers, and popular content are GitHub server-side analytics. Keep the default product local/offline; add token-based collection only as an explicit optional connector.
-
-## Project layout
-
-```text
-cmd/ginsights/          CLI entry point
-internal/app/           command parsing and orchestration
-internal/gitlog/        Git history collection
-internal/analyze/       snapshot aggregation
-internal/report/        HTML + JSON report generation
-internal/server/        local website server
-internal/doclint/       harness/documentation checks
-docs/                   product, architecture, plans, and quality docs
-```
-
-## Development loop
-
-```bash
-make test
-make lint
-make doctor
-make serve
-```
-
-When using Codex, start with `AGENTS.md`, then open the active execution plan that matches the task.
+When using Codex, start with [AGENTS.md](AGENTS.md), then open the active execution plan that matches the task.
