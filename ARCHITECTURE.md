@@ -8,6 +8,7 @@
 cmd/ginsights
   -> internal/app
       -> internal/gitlog
+      -> internal/cache
       -> internal/analyze
       -> internal/report
       -> internal/server
@@ -19,6 +20,7 @@ cmd/ginsights
 - `cmd/ginsights`: only process entrypoint.
 - `internal/app`: CLI flags, command dispatch, user-facing orchestration.
 - `internal/gitlog`: shell out to `git`, collect raw commit/file-change events.
+- `internal/cache`: optional disposable local cache for parsed Git commits.
 - `internal/analyze`: turn raw events into stable snapshot structs.
 - `internal/report`: render snapshot to self-contained HTML and JSON.
 - `internal/server`: host a local website from a snapshot.
@@ -27,6 +29,7 @@ cmd/ginsights
 ## Dependency rules
 
 - `internal/gitlog` must not import report/server/app packages.
+- `internal/cache` may store `internal/gitlog.Commit` values but must not render reports or call app/server code.
 - `internal/analyze` must not shell out or render HTML.
 - `internal/report` must not execute Git commands.
 - `internal/server` may serve rendered report data but must not mutate the repo.
@@ -40,7 +43,6 @@ Raw Git data enters through `internal/gitlog.Commit`. Everything presented to th
 
 Keep these as explicit future work, not hidden abstractions:
 
-- incremental cache keyed by commit hash;
 - optional GitHub connector for server-side traffic data;
 - richer chart rendering;
 - generated screenshots/video verification harness.

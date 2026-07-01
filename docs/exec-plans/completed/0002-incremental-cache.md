@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Complete.
 
 ## Goal
 
@@ -39,9 +39,13 @@ go run ./cmd/ginsights build . --out /tmp/ginsights-report
 ## Decision log
 
 - 2026-07-01: Cache should be an optimization only; correctness source remains Git.
+- 2026-07-01: Cache stores parsed commit records in `.ginsights-cache/commits-v1.json`, keyed by immutable commit hash. `git log --all --format=%H` remains the reachability source; stale cache entries are pruned on rewrite.
+- 2026-07-01: Added `--no-cache` to `serve`, `build`, and `json`, plus `cache-clear [repo]` for disposable cleanup.
 
 ## Next actions
 
-1. Add benchmark fixture for parser/analyzer.
-2. Design cache structs in `internal/cache`.
-3. Add cache invalidation tests.
+1. Continue with active plan 0003 optional GitHub connector.
+
+## Completion note
+
+- 2026-07-01: Completed optional incremental analysis cache with cache hit, missing, stale prune, bypass, and clear tests. Documented cache format in `docs/product-specs/cache-format.md` and verified parser/analyzer benchmark fixtures.

@@ -29,3 +29,7 @@ A developer with a private or public Git repo who wants activity/contributor/cod
 `ginsights build . --out report` should produce static files that can be opened by a browser.
 
 `ginsights doctor .` should guide Codex toward fixing missing repo-harness pieces.
+
+See also:
+
+- [Disposable cache format](cache-format.md)

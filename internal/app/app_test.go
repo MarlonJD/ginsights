@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/ginsights/internal/analyze"
+	"github.com/multica-ai/ginsights/internal/cache"
 	"github.com/multica-ai/ginsights/internal/gitlog"
 )
 
@@ -70,6 +71,57 @@ func TestRunJSONRejectsInvalidSince(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), `invalid --since "07/01/2026": use YYYY-MM-DD`) {
 		t.Fatalf("stderr = %q, want practical YYYY-MM-DD error", stderr.String())
+	}
+}
+
+func TestRunJSONPopulatesCacheByDefault(t *testing.T) {
+	repo := testGitRepo(t)
+	commitFile(t, repo, "main.go", "package demo\n", "2026-07-01T12:00:00+00:00", "initial")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"json", repo}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run json exit = %d, stderr = %s", code, stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(cache.DefaultDir(repo), "commits-v1.json")); err != nil {
+		t.Fatalf("cache file was not created: %v", err)
+	}
+}
+
+func TestRunJSONNoCacheDoesNotCreateCache(t *testing.T) {
+	repo := testGitRepo(t)
+	commitFile(t, repo, "main.go", "package demo\n", "2026-07-01T12:00:00+00:00", "initial")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"json", repo, "--no-cache"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run json exit = %d, stderr = %s", code, stderr.String())
+	}
+	if _, err := os.Stat(cache.DefaultDir(repo)); !os.IsNotExist(err) {
+		t.Fatalf("cache dir exists or stat failed with unexpected error: %v", err)
+	}
+}
+
+func TestRunCacheClearRemovesCache(t *testing.T) {
+	repo := testGitRepo(t)
+	cacheDir := cache.DefaultDir(repo)
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cacheDir, "commits-v1.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"cache-clear", repo}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run cache-clear exit = %d, stderr = %s", code, stderr.String())
+	}
+	if _, err := os.Stat(cacheDir); !os.IsNotExist(err) {
+		t.Fatalf("cache dir exists or stat failed with unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "Cache cleared:") {
+		t.Fatalf("stdout = %q, want cache-clear confirmation", stdout.String())
 	}
 }
 

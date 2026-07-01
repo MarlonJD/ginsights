@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/ginsights/internal/analyze"
+	historycache "github.com/multica-ai/ginsights/internal/cache"
 	"github.com/multica-ai/ginsights/internal/doclint"
 	"github.com/multica-ai/ginsights/internal/gitlog"
 	"github.com/multica-ai/ginsights/internal/report"
@@ -38,6 +39,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runBuild(ctx, args[1:], stdout, stderr)
 	case "json":
 		return runJSON(ctx, args[1:], stdout, stderr)
+	case "cache-clear":
+		return runCacheClear(args[1:], stdout, stderr)
 	case "doctor":
 		return runDoctor(args[1:], stdout, stderr)
 	default:
@@ -51,11 +54,12 @@ func runServe(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	port := fs.Int("port", defaultPort, "port to listen on; use 0 for a random free port")
+	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "since": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -78,11 +82,12 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	out := fs.String("out", "report", "output directory")
+	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"out": true, "since": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -106,11 +111,12 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 func runJSON(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("json", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"since": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -128,6 +134,22 @@ func runJSON(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "encode json: %v\n", err)
 		return 1
 	}
+	return 0
+}
+
+func runCacheClear(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("cache-clear", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	repo := firstArg(fs.Args(), ".")
+	if err := historycache.Clear(repo); err != nil {
+		fmt.Fprintf(stderr, "cache-clear %s: %v\n", repo, err)
+		return 1
+	}
+	abs, _ := filepath.Abs(historycache.DefaultDir(repo))
+	fmt.Fprintf(stdout, "Cache cleared: %s\n", abs)
 	return 0
 }
 
@@ -154,18 +176,21 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 }
 
 type snapshotOptions struct {
-	Since time.Time
+	Since   time.Time
+	NoCache bool
 }
 
-func snapshotOptionsFromFlags(sinceValue string) (snapshotOptions, error) {
+func snapshotOptionsFromFlags(sinceValue string, noCache bool) (snapshotOptions, error) {
+	opts := snapshotOptions{NoCache: noCache}
 	if sinceValue == "" {
-		return snapshotOptions{}, nil
+		return opts, nil
 	}
 	since, err := parseSince(sinceValue)
 	if err != nil {
 		return snapshotOptions{}, err
 	}
-	return snapshotOptions{Since: since}, nil
+	opts.Since = since
+	return opts, nil
 }
 
 func parseSince(value string) (time.Time, error) {
@@ -178,7 +203,13 @@ func parseSince(value string) (time.Time, error) {
 
 func snapshot(ctx context.Context, repo string, opts snapshotOptions) (analyze.Snapshot, error) {
 	collector := gitlog.NewCollector(repo)
-	history, err := collector.Collect(ctx)
+	var history []gitlog.Commit
+	var err error
+	if opts.NoCache {
+		history, err = collector.Collect(ctx)
+	} else {
+		history, err = historycache.Collect(ctx, collector, historycache.Store{Dir: historycache.DefaultDir(repo)})
+	}
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return analyze.Snapshot{}, fmt.Errorf("git repository not found: %w", err)
@@ -241,9 +272,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `ginsights - GitHub-style local repository insights
 
 Usage:
-  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD]
-  ginsights build [repo] --out report [--since YYYY-MM-DD]
-  ginsights json [repo] [--since YYYY-MM-DD]
+  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD] [--no-cache]
+  ginsights build [repo] --out report [--since YYYY-MM-DD] [--no-cache]
+  ginsights json [repo] [--since YYYY-MM-DD] [--no-cache]
+  ginsights cache-clear [repo]
   ginsights doctor [repo]
 
 Examples:

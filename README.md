@@ -58,6 +58,16 @@ go run ./cmd/ginsights json . --since 2026-07-01 > insights.json
 
 `--since` accepts `YYYY-MM-DD` and includes commits on or after the local start of that day. It filters Git-history metrics such as commits, contributors, code frequency, hot files, and recent commits. Working-tree signals such as languages and repository health still describe the current checkout.
 
+Cache behavior:
+
+```bash
+go run ./cmd/ginsights build . --out report
+go run ./cmd/ginsights build . --out report --no-cache
+go run ./cmd/ginsights cache-clear .
+```
+
+By default, ginsights stores a disposable parsed-commit cache under `.ginsights-cache/` so repeated runs can avoid reparsing unchanged commits. `--no-cache` bypasses it for one run, and `cache-clear` deletes it. The cache is an optimization only; Git remains the source of truth.
+
 Validate the agent harness:
 
 ```bash
@@ -76,11 +86,11 @@ Implemented now:
 - repository health checklist;
 - local server and static report export;
 - `--since YYYY-MM-DD` filtering for Git-history metrics;
+- disposable `.ginsights-cache/` acceleration for repeated analysis;
 - Codex-oriented docs and plans.
 
 Not implemented yet:
 
-- incremental cache;
 - branch filters and interactive date controls in the UI;
 - richer GitHub-like charts;
 - optional GitHub token integration for server-side data such as views/clones;

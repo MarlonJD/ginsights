@@ -1,6 +1,7 @@
 package analyze
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -46,4 +47,35 @@ func TestBuildSnapshotAggregates(t *testing.T) {
 	if len(snap.HotFiles) == 0 || snap.HotFiles[0].Path != "main.go" {
 		t.Fatalf("hot files = %+v, want main.go first", snap.HotFiles)
 	}
+}
+
+func BenchmarkBuildSnapshot(b *testing.B) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	commits := benchmarkCommits(500)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		snap := BuildSnapshot(".", commits, now)
+		if snap.Totals.Commits != len(commits) {
+			b.Fatalf("commits = %d, want %d", snap.Totals.Commits, len(commits))
+		}
+	}
+}
+
+func benchmarkCommits(count int) []gitlog.Commit {
+	base := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	commits := make([]gitlog.Commit, 0, count)
+	for i := 0; i < count; i++ {
+		commits = append(commits, gitlog.Commit{
+			Hash:        fmt.Sprintf("%040d", i),
+			AuthorName:  fmt.Sprintf("Author %d", i%8),
+			AuthorEmail: fmt.Sprintf("author%d@example.com", i%8),
+			Date:        base.Add(time.Duration(i) * time.Hour),
+			Subject:     fmt.Sprintf("Commit %d", i),
+			Files: []gitlog.FileChange{
+				{Path: fmt.Sprintf("internal/file%d.go", i%25), Additions: 10 + i%7, Deletions: i % 5},
+				{Path: "README.md", Additions: 1, Deletions: 0},
+			},
+		})
+	}
+	return commits
 }

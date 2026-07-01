@@ -14,6 +14,7 @@ import (
 const (
 	recordSep = "\x1e"
 	unitSep   = "\x1f"
+	logFormat = "--format=" + recordSep + "%H" + unitSep + "%an" + unitSep + "%ae" + unitSep + "%ad" + unitSep + "%s"
 )
 
 type Collector struct {
@@ -49,8 +50,69 @@ func (c Collector) Collect(ctx context.Context) ([]Commit, error) {
 		"--all",
 		"--date=iso-strict",
 		"--numstat",
-		"--format=" + recordSep + "%H" + unitSep + "%an" + unitSep + "%ae" + unitSep + "%ad" + unitSep + "%s",
+		logFormat,
 	}
+	out, err := c.runGit(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+	commits, err := parseLog(out)
+	if err != nil {
+		return nil, err
+	}
+	return commits, nil
+}
+
+func (c Collector) ListHashes(ctx context.Context) ([]string, error) {
+	if err := c.ensureRepo(ctx); err != nil {
+		return nil, err
+	}
+	out, err := c.runGit(ctx, []string{"-C", c.repo, "log", "--all", "--format=%H"})
+	if err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	var hashes []string
+	for scanner.Scan() {
+		hash := strings.TrimSpace(scanner.Text())
+		if hash != "" {
+			hashes = append(hashes, hash)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan git hashes: %w", err)
+	}
+	return hashes, nil
+}
+
+func (c Collector) CollectHashes(ctx context.Context, hashes []string) ([]Commit, error) {
+	if len(hashes) == 0 {
+		return nil, nil
+	}
+	if err := c.ensureRepo(ctx); err != nil {
+		return nil, err
+	}
+	args := []string{
+		"-C", c.repo,
+		"log",
+		"--no-walk",
+		"--date=iso-strict",
+		"--numstat",
+		logFormat,
+	}
+	args = append(args, hashes...)
+	out, err := c.runGit(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+	commits, err := parseLog(out)
+	if err != nil {
+		return nil, err
+	}
+	return commits, nil
+}
+
+func (c Collector) runGit(ctx context.Context, args []string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -58,11 +120,7 @@ func (c Collector) Collect(ctx context.Context) ([]Commit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("git log failed: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
-	commits, err := parseLog(out)
-	if err != nil {
-		return nil, err
-	}
-	return commits, nil
+	return out, nil
 }
 
 func (c Collector) ensureRepo(ctx context.Context) error {
