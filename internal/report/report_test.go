@@ -34,6 +34,64 @@ func TestHTMLRendersCoreSections(t *testing.T) {
 	}
 }
 
+func TestHTMLRendersDenseCommitHeatmap(t *testing.T) {
+	snap := analyze.Snapshot{
+		RepoName:    "demo",
+		RepoPath:    "/tmp/demo",
+		GeneratedAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
+		Daily: []analyze.DayStat{
+			{Date: time.Date(2026, 6, 29, 0, 0, 0, 0, time.UTC), Commits: 1},
+			{Date: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), Commits: 4},
+		},
+	}
+	html, err := HTML(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`class="heatmap-shell"`,
+		`aria-label="commit activity heatmap, 7 days"`,
+		`title="2026-06-30: 0 commits"`,
+		`class="heat l0"`,
+		`class="heat l4"`,
+		`class="heatmap-legend"`,
+		`2 active days · 5 commits`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("HTML missing dense heatmap marker %q", want)
+		}
+	}
+}
+
+func TestHTMLRendersDenseCodeFrequency(t *testing.T) {
+	snap := analyze.Snapshot{
+		RepoName:    "demo",
+		RepoPath:    "/tmp/demo",
+		GeneratedAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
+		Weekly: []analyze.WeekStat{
+			{WeekStart: time.Date(2026, 6, 22, 0, 0, 0, 0, time.UTC), Commits: 1, Additions: 50, Deletions: 5},
+			{WeekStart: time.Date(2026, 6, 29, 0, 0, 0, 0, time.UTC), Commits: 3, Additions: 180, Deletions: 42},
+		},
+	}
+	html, err := HTML(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`class="code-frequency-table"`,
+		`<th>Net</th>`,
+		`class="frequency-bars" title="2026-06-29: &#43;180 additions, -42 deletions, &#43;138 net across 3 commits"`,
+		`class="frequency-bar additions"`,
+		`class="frequency-bar deletions"`,
+		`&#43;138`,
+		`2 weeks · &#43;230/-47 · net &#43;183`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("HTML missing dense code-frequency marker %q", want)
+		}
+	}
+}
+
 func TestHTMLMatchesGoldenFixture(t *testing.T) {
 	html, err := HTML(goldenSnapshot())
 	if err != nil {

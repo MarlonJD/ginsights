@@ -40,8 +40,8 @@ go run ./cmd/ginsights build . --out /tmp/ginsights-report
 
 - 2026-07-01: Keep report self-contained; no Node/Vite until interaction complexity justifies it.
 - 2026-07-01: Added a non-empty renderer golden fixture to catch unintended HTML output changes.
+- 2026-07-01: Improved code-frequency and commit activity density inside the static renderer: heatmap days now fill complete weeks with `l0`-`l4` intensity classes, a compact legend, and per-day tooltips; code frequency now shows net change, a dense additions/deletions bar, and a weekly summary.
 
 ## Next actions
 
-1. Improve code-frequency and heatmap visual density.
-2. Add CLI flag for `--since` and document behavior.
+1. Add CLI flag for `--since` and document behavior.

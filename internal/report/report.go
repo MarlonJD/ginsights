@@ -41,12 +41,13 @@ func JSON(snap analyze.Snapshot) ([]byte, error) {
 func HTML(snap analyze.Snapshot) (string, error) {
 	view := makeView(snap)
 	tmpl, err := template.New("report").Funcs(template.FuncMap{
-		"formatInt":   formatInt,
-		"formatDate":  formatDate,
-		"formatPct":   formatPct,
-		"barWidth":    barWidth,
-		"statusClass": statusClass,
-		"statusText":  statusText,
+		"formatInt":       formatInt,
+		"formatDate":      formatDate,
+		"formatPct":       formatPct,
+		"formatSignedInt": formatSignedInt,
+		"barWidth":        barWidth,
+		"statusClass":     statusClass,
+		"statusText":      statusText,
 	}).Parse(reportTemplate)
 	if err != nil {
 		return "", err
@@ -65,6 +66,26 @@ type viewModel struct {
 	MaxDailyCommits  int
 	MaxFileChurn     int
 	GeneratedLabel   string
+	HeatmapDays      []heatmapDay
+	HeatmapSummary   string
+	WeeklyRows       []weeklyRow
+	WeeklySummary    string
+}
+
+type heatmapDay struct {
+	Date    time.Time
+	Commits int
+	Class   string
+	Tooltip string
+}
+
+type weeklyRow struct {
+	analyze.WeekStat
+	Net      int
+	NetClass string
+	AddWidth int
+	DelWidth int
+	Tooltip  string
 }
 
 func makeView(snap analyze.Snapshot) viewModel {
@@ -87,7 +108,162 @@ func makeView(snap analyze.Snapshot) viewModel {
 			v.MaxFileChurn = file.Churn
 		}
 	}
+	v.HeatmapDays, v.HeatmapSummary = buildHeatmapDays(snap.Daily)
+	v.WeeklyRows, v.WeeklySummary = buildWeeklyRows(snap.Weekly, v.MaxWeeklyLines)
 	return v
+}
+
+func buildHeatmapDays(daily []analyze.DayStat) ([]heatmapDay, string) {
+	if len(daily) == 0 {
+		return nil, ""
+	}
+	counts := map[time.Time]int{}
+	var minDate, maxDate time.Time
+	maxCommits := 0
+	for _, day := range daily {
+		if day.Date.IsZero() {
+			continue
+		}
+		date := dayStart(day.Date)
+		counts[date] += day.Commits
+		if minDate.IsZero() || date.Before(minDate) {
+			minDate = date
+		}
+		if maxDate.IsZero() || date.After(maxDate) {
+			maxDate = date
+		}
+		if counts[date] > maxCommits {
+			maxCommits = counts[date]
+		}
+	}
+	if minDate.IsZero() {
+		return nil, ""
+	}
+
+	start := weekStart(minDate)
+	end := weekStart(maxDate).AddDate(0, 0, 6)
+	out := make([]heatmapDay, 0, int(end.Sub(start).Hours()/24)+1)
+	activeDays := 0
+	totalCommits := 0
+	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+		commits := counts[date]
+		if commits > 0 {
+			activeDays++
+			totalCommits += commits
+		}
+		class := fmt.Sprintf("l%d", heatLevel(commits, maxCommits))
+		out = append(out, heatmapDay{
+			Date:    date,
+			Commits: commits,
+			Class:   class,
+			Tooltip: fmt.Sprintf("%s: %s", formatDate(date), commitCountLabel(commits)),
+		})
+	}
+	return out, fmt.Sprintf("%s active %s · %s", formatInt(activeDays), plural(activeDays, "day", "days"), commitCountLabel(totalCommits))
+}
+
+func buildWeeklyRows(weekly []analyze.WeekStat, maxLines int) ([]weeklyRow, string) {
+	if len(weekly) == 0 {
+		return nil, ""
+	}
+	rows := make([]weeklyRow, 0, len(weekly))
+	totalAdditions := 0
+	totalDeletions := 0
+	for _, week := range weekly {
+		net := week.Additions - week.Deletions
+		totalAdditions += week.Additions
+		totalDeletions += week.Deletions
+		rows = append(rows, weeklyRow{
+			WeekStat: week,
+			Net:      net,
+			NetClass: netClass(net),
+			AddWidth: frequencyWidth(week.Additions, maxLines),
+			DelWidth: frequencyWidth(week.Deletions, maxLines),
+			Tooltip: fmt.Sprintf("%s: +%s additions, -%s deletions, %s net across %s",
+				formatDate(week.WeekStart),
+				formatInt(week.Additions),
+				formatInt(week.Deletions),
+				formatSignedInt(net),
+				commitCountLabel(week.Commits),
+			),
+		})
+	}
+	net := totalAdditions - totalDeletions
+	summary := fmt.Sprintf("%s %s · +%s/-%s · net %s",
+		formatInt(len(weekly)),
+		plural(len(weekly), "week", "weeks"),
+		formatInt(totalAdditions),
+		formatInt(totalDeletions),
+		formatSignedInt(net),
+	)
+	return rows, summary
+}
+
+func dayStart(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+}
+
+func weekStart(t time.Time) time.Time {
+	date := dayStart(t)
+	offset := (int(date.Weekday()) + 6) % 7
+	return date.AddDate(0, 0, -offset)
+}
+
+func heatLevel(commits, maxCommits int) int {
+	if commits <= 0 || maxCommits <= 0 {
+		return 0
+	}
+	level := (commits*4 + maxCommits - 1) / maxCommits
+	if level < 1 {
+		return 1
+	}
+	if level > 4 {
+		return 4
+	}
+	return level
+}
+
+func frequencyWidth(value, max int) int {
+	if value <= 0 || max <= 0 {
+		return 0
+	}
+	pct := int(float64(value) / float64(max) * 100)
+	if pct < 2 {
+		return 2
+	}
+	if pct > 100 {
+		return 100
+	}
+	return pct
+}
+
+func formatSignedInt(n int) string {
+	if n >= 0 {
+		return "+" + formatInt(n)
+	}
+	return "-" + formatInt(-n)
+}
+
+func netClass(n int) string {
+	if n > 0 {
+		return "positive"
+	}
+	if n < 0 {
+		return "negative"
+	}
+	return "neutral"
+}
+
+func commitCountLabel(n int) string {
+	return fmt.Sprintf("%s %s", formatInt(n), plural(n, "commit", "commits"))
+}
+
+func plural(n int, singular, plural string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
 }
 
 func formatInt(n int) string {
@@ -150,7 +326,7 @@ const reportTemplate = `<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.RepoName}} · ginsights</title>
   <style>
-    :root { color-scheme: light; --bg:#f6f8fa; --panel:#ffffff; --border:#d0d7de; --muted:#57606a; --text:#24292f; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; --bar:#54aeff; --bar2:#f85149; --heat:#2da44e; }
+    :root { color-scheme: light; --bg:#f6f8fa; --panel:#ffffff; --border:#d0d7de; --muted:#57606a; --text:#24292f; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; --bar:#54aeff; --bar2:#f85149; --heat0:#ebedf0; --heat1:#9be9a8; --heat2:#40c463; --heat3:#30a14e; --heat4:#216e39; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
     a { color:var(--accent); text-decoration:none; }
@@ -177,6 +353,22 @@ const reportTemplate = `<!doctype html>
     .bartrack { flex:1; height:10px; background:#eaeef2; border-radius:999px; overflow:hidden; }
     .bar { height:100%; background:var(--bar); border-radius:999px; }
     .bar.delete { background:var(--bar2); }
+    .section-summary { color:var(--muted); font-size:13px; margin:-4px 0 12px; }
+    .code-frequency-table th:nth-child(3), .code-frequency-table td:nth-child(3),
+    .code-frequency-table th:nth-child(5), .code-frequency-table td:nth-child(5),
+    .code-frequency-table th:nth-child(6), .code-frequency-table td:nth-child(6) { text-align:right; }
+    .code-frequency-table .net { font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .code-frequency-table .net.positive { color:var(--good); }
+    .code-frequency-table .net.negative { color:var(--bad); }
+    .code-frequency-table .net.neutral { color:var(--muted); }
+    .frequency-cell { min-width:190px; }
+    .frequency-bars { display:flex; align-items:center; height:14px; width:100%; overflow:hidden; border-radius:999px; background:#eaeef2; }
+    .frequency-bar { display:block; height:100%; min-width:0; }
+    .frequency-bar.additions { background:var(--good); }
+    .frequency-bar.deletions { background:var(--bad); }
+    .delta { font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .delta.additions { color:var(--good); }
+    .delta.deletions { color:var(--bad); }
     .language-stack { display:flex; height:14px; border-radius:999px; overflow:hidden; background:#eaeef2; margin-bottom:12px; }
     .language-stack span { display:block; min-width:1px; background:var(--bar); border-right:1px solid rgba(255,255,255,.55); }
     .health { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
@@ -184,10 +376,18 @@ const reportTemplate = `<!doctype html>
     .pill { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; }
     .pill.ok { color:var(--good); background:#dafbe1; }
     .pill.missing { color:var(--bad); background:#ffebe9; }
-    .heatmap { display:grid; grid-template-columns:repeat(auto-fill, minmax(10px, 1fr)); gap:3px; max-width:760px; }
-    .heat { width:10px; height:10px; border-radius:2px; background:#ebedf0; }
-    .heat.on { background:var(--heat); opacity:.35; }
-    .heat.l2 { opacity:.55; } .heat.l3 { opacity:.75; } .heat.l4 { opacity:1; }
+    .heatmap-shell { display:grid; gap:10px; }
+    .heatmap-body { display:flex; align-items:flex-start; gap:6px; max-width:760px; overflow-x:auto; padding-bottom:4px; }
+    .heatmap-weekdays { display:grid; grid-template-rows:repeat(7,10px); gap:3px; flex:0 0 28px; color:var(--muted); font-size:10px; line-height:10px; }
+    .heatmap-grid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,10px); grid-auto-columns:10px; gap:3px; width:max-content; }
+    .heat { width:10px; height:10px; border-radius:2px; background:var(--heat0); box-shadow:inset 0 0 0 1px rgba(27,31,36,.06); }
+    .heat.l0 { background:var(--heat0); }
+    .heat.l1 { background:var(--heat1); }
+    .heat.l2 { background:var(--heat2); }
+    .heat.l3 { background:var(--heat3); }
+    .heat.l4 { background:var(--heat4); }
+    .heatmap-legend { display:flex; align-items:center; justify-content:flex-end; gap:5px; color:var(--muted); font-size:12px; max-width:760px; }
+    .heatmap-legend .heat { display:inline-block; flex:0 0 auto; }
     .recent li { margin:0 0 8px; }
     footer { color:var(--muted); font-size:12px; margin:36px 0 0; }
     code { background:#f6f8fa; padding:2px 5px; border-radius:5px; }
@@ -216,9 +416,16 @@ const reportTemplate = `<!doctype html>
     <section class="grid two">
       <div class="panel" id="commits">
         <h2>Commit activity</h2>
-        {{if .Daily}}
-        <div class="heatmap" aria-label="commit activity heatmap">
-          {{range .Daily}}<span title="{{formatDate .Date}}: {{.Commits}} commits" class="heat {{if gt .Commits 0}}on{{end}} {{if ge .Commits 3}}l3{{else if ge .Commits 2}}l2{{end}}"></span>{{end}}
+        {{if .HeatmapDays}}
+        <div class="heatmap-shell">
+          <div class="section-summary">{{.HeatmapSummary}}</div>
+          <div class="heatmap-body">
+            <div class="heatmap-weekdays" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
+            <div class="heatmap-grid" aria-label="commit activity heatmap, {{len .HeatmapDays}} days">
+              {{range .HeatmapDays}}<span title="{{.Tooltip}}" aria-label="{{.Tooltip}}" class="heat {{.Class}}"></span>{{end}}
+            </div>
+          </div>
+          <div class="heatmap-legend" aria-label="commit intensity legend"><span>Less</span><span class="heat l0"></span><span class="heat l1"></span><span class="heat l2"></span><span class="heat l3"></span><span class="heat l4"></span><span>More</span></div>
         </div>
         {{else}}<p class="muted">No commits found.</p>{{end}}
       </div>
@@ -246,15 +453,18 @@ const reportTemplate = `<!doctype html>
 
     <section id="code-frequency" class="panel">
       <h2>Code frequency</h2>
-      {{if .Weekly}}
-      <table>
-        <thead><tr><th>Week</th><th>Commits</th><th>Additions</th><th>Deletions</th></tr></thead>
-        <tbody>{{range .Weekly}}
+      {{if .WeeklyRows}}
+      <div class="section-summary">{{.WeeklySummary}}</div>
+      <table class="code-frequency-table">
+        <thead><tr><th>Week</th><th>Commits</th><th>Net</th><th>Changes</th><th>Additions</th><th>Deletions</th></tr></thead>
+        <tbody>{{range .WeeklyRows}}
           <tr>
             <td>{{formatDate .WeekStart}}</td>
             <td>{{formatInt .Commits}}</td>
-            <td><div class="barrow"><span>+{{formatInt .Additions}}</span><div class="bartrack"><div class="bar" style="width:{{barWidth .Additions $.MaxWeeklyLines}}%"></div></div></div></td>
-            <td><div class="barrow"><span>-{{formatInt .Deletions}}</span><div class="bartrack"><div class="bar delete" style="width:{{barWidth .Deletions $.MaxWeeklyLines}}%"></div></div></div></td>
+            <td class="net {{.NetClass}}">{{formatSignedInt .Net}}</td>
+            <td class="frequency-cell"><div class="frequency-bars" title="{{.Tooltip}}" aria-label="{{.Tooltip}}"><span class="frequency-bar additions" style="width:{{.AddWidth}}%"></span><span class="frequency-bar deletions" style="width:{{.DelWidth}}%"></span></div></td>
+            <td class="delta additions">+{{formatInt .Additions}}</td>
+            <td class="delta deletions">-{{formatInt .Deletions}}</td>
           </tr>
         {{end}}</tbody>
       </table>

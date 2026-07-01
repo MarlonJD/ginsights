@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>demo · ginsights</title>
   <style>
-    :root { color-scheme: light; --bg:#f6f8fa; --panel:#ffffff; --border:#d0d7de; --muted:#57606a; --text:#24292f; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; --bar:#54aeff; --bar2:#f85149; --heat:#2da44e; }
+    :root { color-scheme: light; --bg:#f6f8fa; --panel:#ffffff; --border:#d0d7de; --muted:#57606a; --text:#24292f; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; --bar:#54aeff; --bar2:#f85149; --heat0:#ebedf0; --heat1:#9be9a8; --heat2:#40c463; --heat3:#30a14e; --heat4:#216e39; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
     a { color:var(--accent); text-decoration:none; }
@@ -32,6 +32,22 @@
     .bartrack { flex:1; height:10px; background:#eaeef2; border-radius:999px; overflow:hidden; }
     .bar { height:100%; background:var(--bar); border-radius:999px; }
     .bar.delete { background:var(--bar2); }
+    .section-summary { color:var(--muted); font-size:13px; margin:-4px 0 12px; }
+    .code-frequency-table th:nth-child(3), .code-frequency-table td:nth-child(3),
+    .code-frequency-table th:nth-child(5), .code-frequency-table td:nth-child(5),
+    .code-frequency-table th:nth-child(6), .code-frequency-table td:nth-child(6) { text-align:right; }
+    .code-frequency-table .net { font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .code-frequency-table .net.positive { color:var(--good); }
+    .code-frequency-table .net.negative { color:var(--bad); }
+    .code-frequency-table .net.neutral { color:var(--muted); }
+    .frequency-cell { min-width:190px; }
+    .frequency-bars { display:flex; align-items:center; height:14px; width:100%; overflow:hidden; border-radius:999px; background:#eaeef2; }
+    .frequency-bar { display:block; height:100%; min-width:0; }
+    .frequency-bar.additions { background:var(--good); }
+    .frequency-bar.deletions { background:var(--bad); }
+    .delta { font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .delta.additions { color:var(--good); }
+    .delta.deletions { color:var(--bad); }
     .language-stack { display:flex; height:14px; border-radius:999px; overflow:hidden; background:#eaeef2; margin-bottom:12px; }
     .language-stack span { display:block; min-width:1px; background:var(--bar); border-right:1px solid rgba(255,255,255,.55); }
     .health { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
@@ -39,10 +55,18 @@
     .pill { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; }
     .pill.ok { color:var(--good); background:#dafbe1; }
     .pill.missing { color:var(--bad); background:#ffebe9; }
-    .heatmap { display:grid; grid-template-columns:repeat(auto-fill, minmax(10px, 1fr)); gap:3px; max-width:760px; }
-    .heat { width:10px; height:10px; border-radius:2px; background:#ebedf0; }
-    .heat.on { background:var(--heat); opacity:.35; }
-    .heat.l2 { opacity:.55; } .heat.l3 { opacity:.75; } .heat.l4 { opacity:1; }
+    .heatmap-shell { display:grid; gap:10px; }
+    .heatmap-body { display:flex; align-items:flex-start; gap:6px; max-width:760px; overflow-x:auto; padding-bottom:4px; }
+    .heatmap-weekdays { display:grid; grid-template-rows:repeat(7,10px); gap:3px; flex:0 0 28px; color:var(--muted); font-size:10px; line-height:10px; }
+    .heatmap-grid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,10px); grid-auto-columns:10px; gap:3px; width:max-content; }
+    .heat { width:10px; height:10px; border-radius:2px; background:var(--heat0); box-shadow:inset 0 0 0 1px rgba(27,31,36,.06); }
+    .heat.l0 { background:var(--heat0); }
+    .heat.l1 { background:var(--heat1); }
+    .heat.l2 { background:var(--heat2); }
+    .heat.l3 { background:var(--heat3); }
+    .heat.l4 { background:var(--heat4); }
+    .heatmap-legend { display:flex; align-items:center; justify-content:flex-end; gap:5px; color:var(--muted); font-size:12px; max-width:760px; }
+    .heatmap-legend .heat { display:inline-block; flex:0 0 auto; }
     .recent li { margin:0 0 8px; }
     footer { color:var(--muted); font-size:12px; margin:36px 0 0; }
     code { background:#f6f8fa; padding:2px 5px; border-radius:5px; }
@@ -72,8 +96,15 @@
       <div class="panel" id="commits">
         <h2>Commit activity</h2>
         
-        <div class="heatmap" aria-label="commit activity heatmap">
-          <span title="2026-06-29: 1 commits" class="heat on "></span><span title="2026-06-30: 2 commits" class="heat on l2"></span><span title="2026-07-01: 3 commits" class="heat on l3"></span>
+        <div class="heatmap-shell">
+          <div class="section-summary">3 active days · 6 commits</div>
+          <div class="heatmap-body">
+            <div class="heatmap-weekdays" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
+            <div class="heatmap-grid" aria-label="commit activity heatmap, 7 days">
+              <span title="2026-06-29: 1 commit" aria-label="2026-06-29: 1 commit" class="heat l2"></span><span title="2026-06-30: 2 commits" aria-label="2026-06-30: 2 commits" class="heat l3"></span><span title="2026-07-01: 3 commits" aria-label="2026-07-01: 3 commits" class="heat l4"></span><span title="2026-07-02: 0 commits" aria-label="2026-07-02: 0 commits" class="heat l0"></span><span title="2026-07-03: 0 commits" aria-label="2026-07-03: 0 commits" class="heat l0"></span><span title="2026-07-04: 0 commits" aria-label="2026-07-04: 0 commits" class="heat l0"></span><span title="2026-07-05: 0 commits" aria-label="2026-07-05: 0 commits" class="heat l0"></span>
+            </div>
+          </div>
+          <div class="heatmap-legend" aria-label="commit intensity legend"><span>Less</span><span class="heat l0"></span><span class="heat l1"></span><span class="heat l2"></span><span class="heat l3"></span><span class="heat l4"></span><span>More</span></div>
         </div>
         
       </div>
@@ -104,14 +135,17 @@
     <section id="code-frequency" class="panel">
       <h2>Code frequency</h2>
       
-      <table>
-        <thead><tr><th>Week</th><th>Commits</th><th>Additions</th><th>Deletions</th></tr></thead>
+      <div class="section-summary">1 week · &#43;180/-42 · net &#43;138</div>
+      <table class="code-frequency-table">
+        <thead><tr><th>Week</th><th>Commits</th><th>Net</th><th>Changes</th><th>Additions</th><th>Deletions</th></tr></thead>
         <tbody>
           <tr>
             <td>2026-06-29</td>
             <td>3</td>
-            <td><div class="barrow"><span>+180</span><div class="bartrack"><div class="bar" style="width:81%"></div></div></div></td>
-            <td><div class="barrow"><span>-42</span><div class="bartrack"><div class="bar delete" style="width:18%"></div></div></div></td>
+            <td class="net positive">&#43;138</td>
+            <td class="frequency-cell"><div class="frequency-bars" title="2026-06-29: &#43;180 additions, -42 deletions, &#43;138 net across 3 commits" aria-label="2026-06-29: &#43;180 additions, -42 deletions, &#43;138 net across 3 commits"><span class="frequency-bar additions" style="width:81%"></span><span class="frequency-bar deletions" style="width:18%"></span></div></td>
+            <td class="delta additions">+180</td>
+            <td class="delta deletions">-42</td>
           </tr>
         </tbody>
       </table>
