@@ -51,12 +51,18 @@ func runServe(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	port := fs.Int("port", defaultPort, "port to listen on; use 0 for a random free port")
-	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true})); err != nil {
+	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "since": true})); err != nil {
+		return 2
+	}
+	opts, err := snapshotOptionsFromFlags(*sinceValue)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return 2
 	}
 	repo := firstArg(fs.Args(), ".")
 
-	snap, err := snapshot(ctx, repo)
+	snap, err := snapshot(ctx, repo, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "analyze %s: %v\n", repo, err)
 		return 1
@@ -72,12 +78,18 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	out := fs.String("out", "report", "output directory")
-	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"out": true})); err != nil {
+	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"out": true, "since": true})); err != nil {
+		return 2
+	}
+	opts, err := snapshotOptionsFromFlags(*sinceValue)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return 2
 	}
 	repo := firstArg(fs.Args(), ".")
 
-	snap, err := snapshot(ctx, repo)
+	snap, err := snapshot(ctx, repo, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "analyze %s: %v\n", repo, err)
 		return 1
@@ -94,12 +106,18 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 func runJSON(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("json", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	if err := fs.Parse(args); err != nil {
+	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"since": true})); err != nil {
+		return 2
+	}
+	opts, err := snapshotOptionsFromFlags(*sinceValue)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return 2
 	}
 	repo := firstArg(fs.Args(), ".")
 
-	snap, err := snapshot(ctx, repo)
+	snap, err := snapshot(ctx, repo, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "analyze %s: %v\n", repo, err)
 		return 1
@@ -135,7 +153,30 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func snapshot(ctx context.Context, repo string) (analyze.Snapshot, error) {
+type snapshotOptions struct {
+	Since time.Time
+}
+
+func snapshotOptionsFromFlags(sinceValue string) (snapshotOptions, error) {
+	if sinceValue == "" {
+		return snapshotOptions{}, nil
+	}
+	since, err := parseSince(sinceValue)
+	if err != nil {
+		return snapshotOptions{}, err
+	}
+	return snapshotOptions{Since: since}, nil
+}
+
+func parseSince(value string) (time.Time, error) {
+	since, err := time.ParseInLocation("2006-01-02", value, time.Local)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid --since %q: use YYYY-MM-DD, for example --since 2026-07-01", value)
+	}
+	return since, nil
+}
+
+func snapshot(ctx context.Context, repo string, opts snapshotOptions) (analyze.Snapshot, error) {
 	collector := gitlog.NewCollector(repo)
 	history, err := collector.Collect(ctx)
 	if err != nil {
@@ -144,7 +185,20 @@ func snapshot(ctx context.Context, repo string) (analyze.Snapshot, error) {
 		}
 		return analyze.Snapshot{}, err
 	}
+	if !opts.Since.IsZero() {
+		history = filterCommitsSince(history, opts.Since)
+	}
 	return analyze.BuildSnapshot(repo, history, time.Now()), nil
+}
+
+func filterCommitsSince(commits []gitlog.Commit, since time.Time) []gitlog.Commit {
+	filtered := make([]gitlog.Commit, 0, len(commits))
+	for _, commit := range commits {
+		if !commit.Date.Before(since) {
+			filtered = append(filtered, commit)
+		}
+	}
+	return filtered
 }
 
 func normalizeFlagArgs(args []string, flagsWithValues map[string]bool) []string {
@@ -187,13 +241,13 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `ginsights - GitHub-style local repository insights
 
 Usage:
-  ginsights serve [repo] [--port 43117]
-  ginsights build [repo] --out report
-  ginsights json [repo]
+  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD]
+  ginsights build [repo] --out report [--since YYYY-MM-DD]
+  ginsights json [repo] [--since YYYY-MM-DD]
   ginsights doctor [repo]
 
 Examples:
   ginsights serve .
-  ginsights build ~/src/project --out report
-  ginsights json . > insights.json`)
+  ginsights build ~/src/project --out report --since 2026-07-01
+  ginsights json . --since 2026-07-01 > insights.json`)
 }

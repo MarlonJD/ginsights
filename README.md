@@ -48,6 +48,16 @@ Export JSON:
 go run ./cmd/ginsights json . > insights.json
 ```
 
+Limit commit-derived insights to a date range:
+
+```bash
+go run ./cmd/ginsights serve . --since 2026-07-01
+go run ./cmd/ginsights build . --out report --since 2026-07-01
+go run ./cmd/ginsights json . --since 2026-07-01 > insights.json
+```
+
+`--since` accepts `YYYY-MM-DD` and includes commits on or after the local start of that day. It filters Git-history metrics such as commits, contributors, code frequency, hot files, and recent commits. Working-tree signals such as languages and repository health still describe the current checkout.
+
 Validate the agent harness:
 
 ```bash
@@ -65,12 +75,13 @@ Implemented now:
 - simple language byte breakdown;
 - repository health checklist;
 - local server and static report export;
+- `--since YYYY-MM-DD` filtering for Git-history metrics;
 - Codex-oriented docs and plans.
 
 Not implemented yet:
 
 - incremental cache;
-- branch/date filters in the UI;
+- branch filters and interactive date controls in the UI;
 - richer GitHub-like charts;
 - optional GitHub token integration for server-side data such as views/clones;
 - generated screenshots/video verification.
