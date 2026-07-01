@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>demo · ginsights</title>
+  <style>
+    :root { color-scheme: light; --bg:#f6f8fa; --panel:#ffffff; --border:#d0d7de; --muted:#57606a; --text:#24292f; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; --bar:#54aeff; --bar2:#f85149; --heat:#2da44e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+    a { color:var(--accent); text-decoration:none; }
+    header { background:#24292f; color:#fff; padding:18px 28px; }
+    header .repo { font-size:20px; font-weight:650; }
+    header .path { color:#afb8c1; margin-top:4px; font-size:13px; }
+    nav { display:flex; gap:8px; flex-wrap:wrap; padding:12px 28px; background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1; }
+    nav a { padding:7px 10px; border-radius:6px; color:var(--text); font-size:14px; }
+    nav a:hover { background:#f3f4f6; }
+    main { max-width:1180px; margin:0 auto; padding:24px; }
+    section { margin:0 0 24px; }
+    h2 { margin:0 0 12px; font-size:20px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+    .card, .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; box-shadow:0 1px 0 rgba(27,31,36,.04); }
+    .metric { font-size:28px; font-weight:700; letter-spacing:-.02em; }
+    .label, .muted { color:var(--muted); font-size:13px; }
+    .grid { display:grid; grid-template-columns:1fr; gap:16px; }
+    @media (min-width:900px){ .grid.two { grid-template-columns:1fr 1fr; } }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th, td { padding:9px 8px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+    th { color:var(--muted); font-weight:600; background:#f6f8fa; }
+    tr:last-child td { border-bottom:0; }
+    .barrow { display:flex; align-items:center; gap:8px; min-width:180px; }
+    .bartrack { flex:1; height:10px; background:#eaeef2; border-radius:999px; overflow:hidden; }
+    .bar { height:100%; background:var(--bar); border-radius:999px; }
+    .bar.delete { background:var(--bar2); }
+    .language-stack { display:flex; height:14px; border-radius:999px; overflow:hidden; background:#eaeef2; margin-bottom:12px; }
+    .language-stack span { display:block; min-width:1px; background:var(--bar); border-right:1px solid rgba(255,255,255,.55); }
+    .health { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+    .health-item { border:1px solid var(--border); border-radius:8px; padding:10px; background:#fff; }
+    .pill { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; }
+    .pill.ok { color:var(--good); background:#dafbe1; }
+    .pill.missing { color:var(--bad); background:#ffebe9; }
+    .heatmap { display:grid; grid-template-columns:repeat(auto-fill, minmax(10px, 1fr)); gap:3px; max-width:760px; }
+    .heat { width:10px; height:10px; border-radius:2px; background:#ebedf0; }
+    .heat.on { background:var(--heat); opacity:.35; }
+    .heat.l2 { opacity:.55; } .heat.l3 { opacity:.75; } .heat.l4 { opacity:1; }
+    .recent li { margin:0 0 8px; }
+    footer { color:var(--muted); font-size:12px; margin:36px 0 0; }
+    code { background:#f6f8fa; padding:2px 5px; border-radius:5px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="repo">demo <span class="muted">/ local insights</span></div>
+    <div class="path">/tmp/demo</div>
+  </header>
+  <nav>
+    <a href="#pulse">Pulse</a><a href="#contributors">Contributors</a><a href="#commits">Commits</a><a href="#code-frequency">Code frequency</a><a href="#files">Files</a><a href="#languages">Languages</a><a href="#health">Health</a>
+  </nav>
+  <main>
+    <section id="pulse">
+      <h2>Pulse</h2>
+      <div class="cards">
+        <div class="card"><div class="metric">3</div><div class="label">commits</div></div>
+        <div class="card"><div class="metric">2</div><div class="label">authors</div></div>
+        <div class="card"><div class="metric">3</div><div class="label">files changed</div></div>
+        <div class="card"><div class="metric">+180</div><div class="label">lines added</div></div>
+        <div class="card"><div class="metric">-42</div><div class="label">lines deleted</div></div>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="panel" id="commits">
+        <h2>Commit activity</h2>
+        
+        <div class="heatmap" aria-label="commit activity heatmap">
+          <span title="2026-06-29: 1 commits" class="heat on "></span><span title="2026-06-30: 2 commits" class="heat on l2"></span><span title="2026-07-01: 3 commits" class="heat on l3"></span>
+        </div>
+        
+      </div>
+      <div class="panel">
+        <h2>Recent commits</h2>
+        
+        <ul class="recent">
+          <li><code>abcdef1</code> Improve dashboard renderer <span class="muted">by Ada Lovelace on 2026-07-01</span></li><li><code>1234567</code> Document local insights scope <span class="muted">by Grace Hopper on 2026-06-30</span></li>
+        </ul>
+        
+      </div>
+    </section>
+
+    <section id="contributors" class="panel">
+      <h2>Contributors</h2>
+      
+      <table>
+        <thead><tr><th>Author</th><th>Commits</th><th>Additions</th><th>Deletions</th><th>Files touched</th><th>Active range</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Ada Lovelace</strong><br><span class="muted">ada@example.com</span></td><td>2</td><td>+150</td><td>-25</td><td>2</td><td>2026-06-29 → 2026-07-01</td></tr>
+        
+          <tr><td><strong>Grace Hopper</strong><br><span class="muted">grace@example.com</span></td><td>1</td><td>+30</td><td>-17</td><td>1</td><td>2026-06-30 → 2026-06-30</td></tr>
+        </tbody>
+      </table>
+      
+    </section>
+
+    <section id="code-frequency" class="panel">
+      <h2>Code frequency</h2>
+      
+      <table>
+        <thead><tr><th>Week</th><th>Commits</th><th>Additions</th><th>Deletions</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>2026-06-29</td>
+            <td>3</td>
+            <td><div class="barrow"><span>+180</span><div class="bartrack"><div class="bar" style="width:81%"></div></div></div></td>
+            <td><div class="barrow"><span>-42</span><div class="bartrack"><div class="bar delete" style="width:18%"></div></div></div></td>
+          </tr>
+        </tbody>
+      </table>
+      
+    </section>
+
+    <section id="files" class="panel">
+      <h2>Hot files</h2>
+      
+      <table>
+        <thead><tr><th>Path</th><th>Commits</th><th>Churn</th><th>Additions</th><th>Deletions</th></tr></thead>
+        <tbody>
+          <tr><td><code>internal/report/report.go</code></td><td>2</td><td><div class="barrow"><span>150</span><div class="bartrack"><div class="bar" style="width:100%"></div></div></div></td><td>+120</td><td>-30</td></tr>
+        
+          <tr><td><code>README.md</code></td><td>1</td><td><div class="barrow"><span>72</span><div class="bartrack"><div class="bar" style="width:48%"></div></div></div></td><td>+60</td><td>-12</td></tr>
+        </tbody>
+      </table>
+      
+    </section>
+
+    <section id="languages" class="panel">
+      <h2>Languages</h2>
+      
+      <div class="language-stack"><span title="Go 75.0%" style="width:75.000%"></span><span title="Markdown 25.0%" style="width:25.000%"></span></div>
+      <table><thead><tr><th>Language</th><th>Bytes</th><th>Share</th></tr></thead><tbody><tr><td>Go</td><td>12000</td><td>75.0%</td></tr><tr><td>Markdown</td><td>4000</td><td>25.0%</td></tr></tbody></table>
+      
+    </section>
+
+    <section id="health" class="panel">
+      <h2>Repository health</h2>
+      <div class="health">
+        <div class="health-item"><span class="pill ok">Present</span><strong> README</strong><div class="muted">README.md</div></div>
+      
+        <div class="health-item"><span class="pill missing">Missing</span><strong> CI workflow</strong><div class="muted">missing</div></div>
+      
+        <div class="health-item"><span class="pill ok">Present</span><strong> Tests</strong><div class="muted">test files detected</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Metric provenance</h2>
+      <table><thead><tr><th>Metric</th><th>Source</th></tr></thead><tbody><tr><td>commits/authors/code frequency/file churn</td><td><code>local_git</code></td></tr><tr><td>languages/repo health</td><td><code>working_tree</code></td></tr></tbody></table>
+      <p class="muted">GitHub Traffic metrics such as views, visitors, clones, referrers, and popular content are not derivable from local Git history.</p>
+    </section>
+
+    <footer>Generated by ginsights at Wed, 01 Jul 2026 12:00:00 UTC. Static data: <a href="data.json">data.json</a>.</footer>
+  </main>
+</body>
+</html>

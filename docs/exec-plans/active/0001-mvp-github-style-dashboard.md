@@ -39,9 +39,9 @@ go run ./cmd/ginsights build . --out /tmp/ginsights-report
 ## Decision log
 
 - 2026-07-01: Keep report self-contained; no Node/Vite until interaction complexity justifies it.
+- 2026-07-01: Added a non-empty renderer golden fixture to catch unintended HTML output changes.
 
 ## Next actions
 
-1. Add a renderer golden test fixture.
-2. Improve code-frequency and heatmap visual density.
-3. Add CLI flag for `--since` and document behavior.
+1. Improve code-frequency and heatmap visual density.
+2. Add CLI flag for `--since` and document behavior.

@@ -4,4 +4,4 @@ Add entries when you notice unrelated debt during a task. Do not fix unrelated d
 
 | Date | Area | Debt | Suggested next step | Status |
 | --- | --- | --- | --- | --- |
-| 2026-07-01 | report | HTML renderer is intentionally compact and will need golden tests before heavy UI work. | Add golden fixture and snapshot test. | open |
+| 2026-07-01 | report | HTML renderer is intentionally compact and will need golden tests before heavy UI work. | Added golden fixture and snapshot test. | closed |

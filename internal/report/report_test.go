@@ -1,12 +1,17 @@
 package report
 
 import (
+	"flag"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/multica-ai/ginsights/internal/analyze"
 )
+
+var updateGolden = flag.Bool("update", false, "update golden test fixtures")
 
 func TestHTMLRendersCoreSections(t *testing.T) {
 	snap := analyze.Snapshot{
@@ -27,4 +32,122 @@ func TestHTMLRendersCoreSections(t *testing.T) {
 			t.Fatalf("HTML missing %q", want)
 		}
 	}
+}
+
+func TestHTMLMatchesGoldenFixture(t *testing.T) {
+	html, err := HTML(goldenSnapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join("testdata", "non_empty_report.golden.html")
+	if *updateGolden {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read golden fixture %s: %v; run go test ./internal/report -run TestHTMLMatchesGoldenFixture -update", path, err)
+	}
+	if html != string(want) {
+		t.Fatalf("HTML output does not match golden fixture %s; first diff at byte %d", path, firstDiff(html, string(want)))
+	}
+}
+
+func goldenSnapshot() analyze.Snapshot {
+	baseDate := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	return analyze.Snapshot{
+		RepoName:    "demo",
+		RepoPath:    "/tmp/demo",
+		GeneratedAt: baseDate,
+		Totals: analyze.Totals{
+			Commits:      3,
+			Authors:      2,
+			FilesChanged: 3,
+			Additions:    180,
+			Deletions:    42,
+			NetLines:     138,
+		},
+		Authors: []analyze.AuthorStat{
+			{
+				Name:         "Ada Lovelace",
+				Email:        "ada@example.com",
+				Commits:      2,
+				Additions:    150,
+				Deletions:    25,
+				FilesTouched: 2,
+				FirstCommit:  time.Date(2026, 6, 29, 9, 0, 0, 0, time.UTC),
+				LastCommit:   time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC),
+			},
+			{
+				Name:         "Grace Hopper",
+				Email:        "grace@example.com",
+				Commits:      1,
+				Additions:    30,
+				Deletions:    17,
+				FilesTouched: 1,
+				FirstCommit:  time.Date(2026, 6, 30, 15, 0, 0, 0, time.UTC),
+				LastCommit:   time.Date(2026, 6, 30, 15, 0, 0, 0, time.UTC),
+			},
+		},
+		Weekly: []analyze.WeekStat{
+			{WeekStart: time.Date(2026, 6, 29, 0, 0, 0, 0, time.UTC), Commits: 3, Additions: 180, Deletions: 42},
+		},
+		Daily: []analyze.DayStat{
+			{Date: time.Date(2026, 6, 29, 0, 0, 0, 0, time.UTC), Commits: 1},
+			{Date: time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC), Commits: 2},
+			{Date: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), Commits: 3},
+		},
+		HotFiles: []analyze.FileStat{
+			{Path: "internal/report/report.go", Commits: 2, Additions: 120, Deletions: 30, Churn: 150},
+			{Path: "README.md", Commits: 1, Additions: 60, Deletions: 12, Churn: 72},
+		},
+		Languages: []analyze.LanguageStat{
+			{Name: "Go", Bytes: 12000, Percent: 75},
+			{Name: "Markdown", Bytes: 4000, Percent: 25},
+		},
+		Recent: []analyze.RecentCommit{
+			{
+				Hash:         "abcdef1234567890",
+				ShortHash:    "abcdef1",
+				AuthorName:   "Ada Lovelace",
+				Date:         time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC),
+				Subject:      "Improve dashboard renderer",
+				FilesChanged: 2,
+			},
+			{
+				Hash:         "1234567890abcdef",
+				ShortHash:    "1234567",
+				AuthorName:   "Grace Hopper",
+				Date:         time.Date(2026, 6, 30, 15, 0, 0, 0, time.UTC),
+				Subject:      "Document local insights scope",
+				FilesChanged: 1,
+			},
+		},
+		Health: []analyze.HealthSignal{
+			{Name: "README", Present: true, Detail: "README.md"},
+			{Name: "CI workflow", Present: false, Detail: "missing"},
+			{Name: "Tests", Present: true, Detail: "test files detected"},
+		},
+		Provenance: []analyze.ProvenanceRow{
+			{Metric: "commits/authors/code frequency/file churn", Source: "local_git"},
+			{Metric: "languages/repo health", Source: "working_tree"},
+		},
+	}
+}
+
+func firstDiff(a, b string) int {
+	limit := len(a)
+	if len(b) < limit {
+		limit = len(b)
+	}
+	for i := 0; i < limit; i++ {
+		if a[i] != b[i] {
+			return i
+		}
+	}
+	return limit
 }
