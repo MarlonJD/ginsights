@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Complete.
 
 ## Goal
 
@@ -63,8 +63,20 @@ GOCACHE=/tmp/ginsights-go-cache go run ./cmd/ginsights build . --out /tmp/ginsig
 - 2026-07-01: Added parser/analyzer benchmark fixtures and verified them with `GOCACHE=/tmp/ginsights-go-cache go test ./internal/gitlog ./internal/analyze -run '^$' -bench Benchmark -benchtime=1x`.
 - 2026-07-01: Moved 0002 to `docs/exec-plans/completed/0002-incremental-cache.md` with a completion note.
 - 2026-07-01: Verified 0002 with `GOCACHE=/tmp/ginsights-go-cache go test ./... -count=1`, `GOCACHE=/tmp/ginsights-go-cache go run ./cmd/ginsights doctor .`, and `GOCACHE=/tmp/ginsights-go-cache go run ./cmd/ginsights build . --out /tmp/ginsights-report`.
+- 2026-07-01: Committed 0002 milestone with message `feat(cache): add disposable commit cache`.
+- 2026-07-01: Started 0003 optional GitHub connector after fresh baseline: `GOCACHE=/tmp/ginsights-go-cache go test ./...` passed and `GOCACHE=/tmp/ginsights-go-cache go run ./cmd/ginsights doctor .` passed.
+- 2026-07-01: Added failing TDD tests for `internal/githubapi` token discovery, redaction, fake HTTP success/failure behavior, and app-level missing-token graceful JSON output. Initial red result: `TokenFromEnv`, `RedactToken`, `Client`, and `--github-api` did not exist.
+- 2026-07-01: Implemented `internal/githubapi` with env token discovery, bearer auth, token redaction, repository metadata fetch, traffic views/clones fetch, warning-based traffic degradation, and invalid repository validation.
+- 2026-07-01: Added `github` snapshot fields and `--github-api owner/name` for `serve`, `build`, and `json`; missing token degrades to `github.error`.
+- 2026-07-01: Added report rendering for GitHub API metrics with visible `github_api` provenance and updated the golden fixture intentionally.
+- 2026-07-01: Documented connector behavior in `README.md`, `ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/product-specs/github-api-connector.md`, and `docs/product-specs/github-traffic-boundary.md`.
+- 2026-07-01: Moved 0003 to `docs/exec-plans/completed/0003-github-connector.md` with a completion note.
+- 2026-07-01: Verified 0003 and the cross-plan rollout with `GOCACHE=/tmp/ginsights-go-cache go test ./... -count=1`, `GOCACHE=/tmp/ginsights-go-cache go run ./cmd/ginsights doctor .`, and `GOCACHE=/tmp/ginsights-go-cache go run ./cmd/ginsights build . --out /tmp/ginsights-report`.
 
 ## Next actions
 
-1. Commit the completed 0002 milestone.
-2. Start 0003 with connector boundary docs and TDD tests for safe optional GitHub behavior.
+1. No active production-readiness actions remain for 0001, 0002, or 0003.
+
+## Completion note
+
+- 2026-07-01: Completed 0001, 0002, and 0003 with TDD coverage, documentation, plan completion notes, and full local verification.

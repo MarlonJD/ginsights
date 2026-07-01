@@ -92,6 +92,38 @@ func TestHTMLRendersDenseCodeFrequency(t *testing.T) {
 	}
 }
 
+func TestHTMLRendersGitHubAPISectionWithProvenance(t *testing.T) {
+	snap := analyze.Snapshot{
+		RepoName:    "demo",
+		RepoPath:    "/tmp/demo",
+		GeneratedAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
+		GitHub: &analyze.GitHubMetrics{
+			Repository: "acme/widgets",
+			Stars:      42,
+			Forks:      7,
+			OpenIssues: 3,
+			Views:      &analyze.GitHubTrafficMetric{Count: 120, Uniques: 45},
+			Clones:     &analyze.GitHubTrafficMetric{Count: 12, Uniques: 8},
+		},
+	}
+	html, err := HTML(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`GitHub API`,
+		`github_api`,
+		`acme/widgets`,
+		`42`,
+		`120 views`,
+		`12 clones`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("HTML missing GitHub API marker %q", want)
+		}
+	}
+}
+
 func TestHTMLMatchesGoldenFixture(t *testing.T) {
 	html, err := HTML(goldenSnapshot())
 	if err != nil {

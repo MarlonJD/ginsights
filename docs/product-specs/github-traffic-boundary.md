@@ -10,4 +10,4 @@ Local Git history cannot provide:
 - referrers;
 - popular content on GitHub.
 
-Any future GitHub connector must be explicit, optional, token-based, and documented as server-side GitHub analytics collection. It must not be represented as local inference.
+The GitHub connector is explicit, optional, token-based, and documented as server-side GitHub analytics collection. It must not be represented as local inference.

@@ -74,6 +74,36 @@ func TestRunJSONRejectsInvalidSince(t *testing.T) {
 	}
 }
 
+func TestRunJSONWithGitHubAPIMissingTokenDegradesGracefully(t *testing.T) {
+	t.Setenv("GINSIGHTS_GITHUB_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+	repo := testGitRepo(t)
+	commitFile(t, repo, "main.go", "package demo\n", "2026-07-01T12:00:00+00:00", "initial")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"json", repo, "--github-api", "acme/widgets", "--no-cache"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run json exit = %d, stderr = %s", code, stderr.String())
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &raw); err != nil {
+		t.Fatalf("decode json output: %v\n%s", err, stdout.String())
+	}
+	github, ok := raw["github"].(map[string]any)
+	if !ok {
+		t.Fatalf("github field missing from JSON output:\n%s", stdout.String())
+	}
+	if github["repository"] != "acme/widgets" {
+		t.Fatalf("github.repository = %v, want acme/widgets", github["repository"])
+	}
+	if !strings.Contains(github["error"].(string), "GINSIGHTS_GITHUB_TOKEN") {
+		t.Fatalf("github.error = %v, want missing token guidance", github["error"])
+	}
+	if !strings.Contains(stdout.String(), `"source": "github_api"`) {
+		t.Fatalf("provenance missing github_api source:\n%s", stdout.String())
+	}
+}
+
 func TestRunJSONPopulatesCacheByDefault(t *testing.T) {
 	repo := testGitRepo(t)
 	commitFile(t, repo, "main.go", "package demo\n", "2026-07-01T12:00:00+00:00", "initial")

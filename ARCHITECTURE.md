@@ -10,6 +10,7 @@ cmd/ginsights
       -> internal/gitlog
       -> internal/cache
       -> internal/analyze
+      -> internal/githubapi
       -> internal/report
       -> internal/server
       -> internal/doclint
@@ -22,6 +23,7 @@ cmd/ginsights
 - `internal/gitlog`: shell out to `git`, collect raw commit/file-change events.
 - `internal/cache`: optional disposable local cache for parsed Git commits.
 - `internal/analyze`: turn raw events into stable snapshot structs.
+- `internal/githubapi`: explicit opt-in GitHub REST API client with env-token handling and redaction.
 - `internal/report`: render snapshot to self-contained HTML and JSON.
 - `internal/server`: host a local website from a snapshot.
 - `internal/doclint`: enforce repo harness/documentation invariants.
@@ -31,6 +33,7 @@ cmd/ginsights
 - `internal/gitlog` must not import report/server/app packages.
 - `internal/cache` may store `internal/gitlog.Commit` values but must not render reports or call app/server code.
 - `internal/analyze` must not shell out or render HTML.
+- `internal/githubapi` must not persist tokens or run unless app calls it for an explicit connector flag.
 - `internal/report` must not execute Git commands.
 - `internal/server` may serve rendered report data but must not mutate the repo.
 - User-facing errors should include the command or file that failed and a practical next step.
@@ -43,6 +46,5 @@ Raw Git data enters through `internal/gitlog.Commit`. Everything presented to th
 
 Keep these as explicit future work, not hidden abstractions:
 
-- optional GitHub connector for server-side traffic data;
 - richer chart rendering;
 - generated screenshots/video verification harness.

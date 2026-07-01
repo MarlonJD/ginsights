@@ -373,6 +373,9 @@ const reportTemplate = `<!doctype html>
     .language-stack span { display:block; min-width:1px; background:var(--bar); border-right:1px solid rgba(255,255,255,.55); }
     .health { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
     .health-item { border:1px solid var(--border); border-radius:8px; padding:10px; background:#fff; }
+    .api-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+    .api-metric { border:1px solid var(--border); border-radius:8px; padding:10px; background:#fff; }
+    .warning-list { color:var(--muted); font-size:13px; margin:12px 0 0; }
     .pill { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; }
     .pill.ok { color:var(--good); background:#dafbe1; }
     .pill.missing { color:var(--bad); background:#ffebe9; }
@@ -490,6 +493,25 @@ const reportTemplate = `<!doctype html>
       <table><thead><tr><th>Language</th><th>Bytes</th><th>Share</th></tr></thead><tbody>{{range .Languages}}<tr><td>{{.Name}}</td><td>{{.Bytes}}</td><td>{{formatPct .Percent}}</td></tr>{{end}}</tbody></table>
       {{else}}<p class="muted">No known language files detected.</p>{{end}}
     </section>
+
+{{if .GitHub}}
+    <section id="github-api" class="panel">
+      <h2>GitHub API</h2>
+      <p class="section-summary"><code>github_api</code> data for {{.GitHub.Repository}}</p>
+      {{if .GitHub.Error}}
+      <p class="muted">{{.GitHub.Error}}</p>
+      {{else}}
+      <div class="api-grid">
+        <div class="api-metric"><div class="metric">{{formatInt .GitHub.Stars}}</div><div class="label">stars</div></div>
+        <div class="api-metric"><div class="metric">{{formatInt .GitHub.Forks}}</div><div class="label">forks</div></div>
+        <div class="api-metric"><div class="metric">{{formatInt .GitHub.OpenIssues}}</div><div class="label">open issues</div></div>
+        {{if .GitHub.Views}}<div class="api-metric"><div class="metric">{{formatInt .GitHub.Views.Count}}</div><div class="label">{{formatInt .GitHub.Views.Count}} views · {{formatInt .GitHub.Views.Uniques}} unique</div></div>{{end}}
+        {{if .GitHub.Clones}}<div class="api-metric"><div class="metric">{{formatInt .GitHub.Clones.Count}}</div><div class="label">{{formatInt .GitHub.Clones.Count}} clones · {{formatInt .GitHub.Clones.Uniques}} unique</div></div>{{end}}
+      </div>
+      {{if .GitHub.Warnings}}<ul class="warning-list">{{range .GitHub.Warnings}}<li>{{.}}</li>{{end}}</ul>{{end}}
+      {{end}}
+    </section>
+{{end}}
 
     <section id="health" class="panel">
       <h2>Repository health</h2>

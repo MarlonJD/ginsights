@@ -33,3 +33,4 @@ A developer with a private or public Git repo who wants activity/contributor/cod
 See also:
 
 - [Disposable cache format](cache-format.md)
+- [Optional GitHub API connector](github-api-connector.md)

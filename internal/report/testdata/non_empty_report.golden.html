@@ -52,6 +52,9 @@
     .language-stack span { display:block; min-width:1px; background:var(--bar); border-right:1px solid rgba(255,255,255,.55); }
     .health { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
     .health-item { border:1px solid var(--border); border-radius:8px; padding:10px; background:#fff; }
+    .api-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+    .api-metric { border:1px solid var(--border); border-radius:8px; padding:10px; background:#fff; }
+    .warning-list { color:var(--muted); font-size:13px; margin:12px 0 0; }
     .pill { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; }
     .pill.ok { color:var(--good); background:#dafbe1; }
     .pill.missing { color:var(--bad); background:#ffebe9; }
@@ -173,6 +176,8 @@
       <table><thead><tr><th>Language</th><th>Bytes</th><th>Share</th></tr></thead><tbody><tr><td>Go</td><td>12000</td><td>75.0%</td></tr><tr><td>Markdown</td><td>4000</td><td>25.0%</td></tr></tbody></table>
       
     </section>
+
+
 
     <section id="health" class="panel">
       <h2>Repository health</h2>

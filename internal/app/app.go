@@ -15,6 +15,7 @@ import (
 	"github.com/multica-ai/ginsights/internal/analyze"
 	historycache "github.com/multica-ai/ginsights/internal/cache"
 	"github.com/multica-ai/ginsights/internal/doclint"
+	"github.com/multica-ai/ginsights/internal/githubapi"
 	"github.com/multica-ai/ginsights/internal/gitlog"
 	"github.com/multica-ai/ginsights/internal/report"
 	"github.com/multica-ai/ginsights/internal/server"
@@ -56,10 +57,11 @@ func runServe(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	port := fs.Int("port", defaultPort, "port to listen on; use 0 for a random free port")
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
-	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "since": true})); err != nil {
+	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "since": true, "github-api": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -84,10 +86,11 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	out := fs.String("out", "report", "output directory")
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
-	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"out": true, "since": true})); err != nil {
+	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"out": true, "since": true, "github-api": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -113,10 +116,11 @@ func runJSON(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
-	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"since": true})); err != nil {
+	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"since": true, "github-api": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -176,12 +180,13 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 }
 
 type snapshotOptions struct {
-	Since   time.Time
-	NoCache bool
+	Since      time.Time
+	NoCache    bool
+	GitHubRepo string
 }
 
-func snapshotOptionsFromFlags(sinceValue string, noCache bool) (snapshotOptions, error) {
-	opts := snapshotOptions{NoCache: noCache}
+func snapshotOptionsFromFlags(sinceValue string, noCache bool, githubRepo string) (snapshotOptions, error) {
+	opts := snapshotOptions{NoCache: noCache, GitHubRepo: strings.TrimSpace(githubRepo)}
 	if sinceValue == "" {
 		return opts, nil
 	}
@@ -219,7 +224,37 @@ func snapshot(ctx context.Context, repo string, opts snapshotOptions) (analyze.S
 	if !opts.Since.IsZero() {
 		history = filterCommitsSince(history, opts.Since)
 	}
-	return analyze.BuildSnapshot(repo, history, time.Now()), nil
+	snap := analyze.BuildSnapshot(repo, history, time.Now())
+	if opts.GitHubRepo != "" {
+		mergeGitHubMetrics(ctx, &snap, opts.GitHubRepo)
+	}
+	return snap, nil
+}
+
+func mergeGitHubMetrics(ctx context.Context, snap *analyze.Snapshot, repo string) {
+	snap.Provenance = append(snap.Provenance, analyze.ProvenanceRow{Metric: "github repository metadata/traffic", Source: "github_api"})
+	snap.GitHub = &analyze.GitHubMetrics{Repository: repo}
+	token, _ := githubapi.EnvToken()
+	if token == "" {
+		snap.GitHub.Error = "github api token not configured: set GINSIGHTS_GITHUB_TOKEN or GITHUB_TOKEN"
+		return
+	}
+	metrics, err := githubapi.DefaultClient(token).Fetch(ctx, repo)
+	if err != nil {
+		snap.GitHub.Error = err.Error()
+		return
+	}
+	snap.GitHub.Repository = metrics.Repository
+	snap.GitHub.Stars = metrics.Stars
+	snap.GitHub.Forks = metrics.Forks
+	snap.GitHub.OpenIssues = metrics.OpenIssues
+	snap.GitHub.Warnings = metrics.Warnings
+	if metrics.Views != nil {
+		snap.GitHub.Views = &analyze.GitHubTrafficMetric{Count: metrics.Views.Count, Uniques: metrics.Views.Uniques}
+	}
+	if metrics.Clones != nil {
+		snap.GitHub.Clones = &analyze.GitHubTrafficMetric{Count: metrics.Clones.Count, Uniques: metrics.Clones.Uniques}
+	}
 }
 
 func filterCommitsSince(commits []gitlog.Commit, since time.Time) []gitlog.Commit {
@@ -272,9 +307,9 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `ginsights - GitHub-style local repository insights
 
 Usage:
-  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD] [--no-cache]
-  ginsights build [repo] --out report [--since YYYY-MM-DD] [--no-cache]
-  ginsights json [repo] [--since YYYY-MM-DD] [--no-cache]
+  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD] [--no-cache] [--github-api owner/name]
+  ginsights build [repo] --out report [--since YYYY-MM-DD] [--no-cache] [--github-api owner/name]
+  ginsights json [repo] [--since YYYY-MM-DD] [--no-cache] [--github-api owner/name]
   ginsights cache-clear [repo]
   ginsights doctor [repo]
 

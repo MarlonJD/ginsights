@@ -23,6 +23,7 @@ type Snapshot struct {
 	Recent      []RecentCommit  `json:"recent"`
 	Health      []HealthSignal  `json:"health"`
 	Provenance  []ProvenanceRow `json:"provenance"`
+	GitHub      *GitHubMetrics  `json:"github,omitempty"`
 }
 
 type Totals struct {
@@ -89,6 +90,22 @@ type HealthSignal struct {
 type ProvenanceRow struct {
 	Metric string `json:"metric"`
 	Source string `json:"source"`
+}
+
+type GitHubMetrics struct {
+	Repository string               `json:"repository"`
+	Stars      int                  `json:"stars,omitempty"`
+	Forks      int                  `json:"forks,omitempty"`
+	OpenIssues int                  `json:"open_issues,omitempty"`
+	Views      *GitHubTrafficMetric `json:"views,omitempty"`
+	Clones     *GitHubTrafficMetric `json:"clones,omitempty"`
+	Warnings   []string             `json:"warnings,omitempty"`
+	Error      string               `json:"error,omitempty"`
+}
+
+type GitHubTrafficMetric struct {
+	Count   int `json:"count"`
+	Uniques int `json:"uniques"`
 }
 
 func BuildSnapshot(repo string, commits []gitlog.Commit, now time.Time) Snapshot {
