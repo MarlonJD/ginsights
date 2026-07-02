@@ -1,8 +1,18 @@
 # ginsights
 
-GitHub-style repository insights, locally.
+Local-first repository insights for commits, contributors, churn, language mix, and repo health.
 
-`ginsights` is a single-binary Go CLI that turns local Git history into a static/offline dashboard and JSON snapshot. It shows commits, contributors, code frequency, hot files, language mix, repository health, provenance labels, and optional GitHub API metrics when explicitly requested.
+`ginsights` is a single-binary Go CLI that turns local Git history into a polished static dashboard and JSON snapshot. It is built for quick repo handoffs, local audits, and shareable reports that do not require uploading code or connecting a SaaS account.
+
+![ginsights dashboard screenshot](docs/assets/ginsights-dashboard.jpg)
+
+## Highlights
+
+- Static HTML and JSON output that work offline.
+- Commit activity, contributors, code frequency, hot files, languages, and repository health in one report.
+- Metric provenance labels so local Git data stays separate from optional GitHub API data.
+- Optional disposable cache for faster repeated runs on larger repositories.
+- Explicit GitHub connector only when `--github-api owner/name` is requested.
 
 ## Install
 
@@ -28,7 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/MarlonJD/ginsights/main/scripts/ins
 
 The shell installer builds from source and installs to `~/.local/bin/ginsights` by default. More options, including `--install-dir`, `--ref`, tap maintenance, and source builds, are in [docs/INSTALL.md](docs/INSTALL.md).
 
-## Quick Use
+## Quick Start
 
 ```bash
 ginsights serve . --port 43117
@@ -49,7 +59,9 @@ ginsights cache-clear .
 
 GitHub Insights is useful, but it is hosted and mixes local Git facts with GitHub server-side analytics. `ginsights` makes the local part fast, reproducible, and shareable without uploading code or requiring a token.
 
-It is different from raw `git log` scripts because it provides a stable dashboard, JSON output, health signals, cache behavior, and metric provenance. It is different from SaaS engineering analytics because it does not rank people or require a hosted service. The full rationale is in [docs/WHY.md](docs/WHY.md).
+It is different from raw `git log` scripts because it provides a stable dashboard, JSON output, health signals, cache behavior, and metric provenance. It is different from SaaS engineering analytics because it does not rank people or require a hosted service.
+
+The full rationale is in [docs/WHY.md](docs/WHY.md).
 
 ## Product Boundary
 

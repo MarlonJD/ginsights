@@ -35,6 +35,7 @@ coverage/
 /report/
 /.ginsights/
 /.ginsights-cache/
+/qa/
 
 # Generated docs keep their placeholder tracked
 docs/generated/*
