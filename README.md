@@ -2,14 +2,15 @@
 
 Local-first repository insights for commits, contributors, churn, language mix, and repo health.
 
-`ginsights` is a single-binary Go CLI that turns local Git history into a polished static dashboard and JSON snapshot. It is built for quick repo handoffs, local audits, and shareable reports that do not require uploading code or connecting a SaaS account.
+`ginsights` is a single-binary Go CLI that turns local Git history into a polished Repository Atlas dashboard and JSON snapshot. It is built for quick repo handoffs, local audits, and shareable reports that do not require uploading code or connecting a SaaS account.
 
 ![ginsights dashboard screenshot](docs/assets/ginsights-dashboard.jpg)
 
 ## Highlights
 
 - Static HTML and JSON output that work offline.
-- Commit activity, contributors, code frequency, hot files, languages, and repository health in one report.
+- A full-width commit activity calendar, latest-change strip, contributor table, code-frequency view, hot files, languages, and repository health in one report.
+- A local-first overview that shows net line change, commit volume, authors, touched files, primary language, and health signals without ranking people.
 - Metric provenance labels so local Git data stays separate from optional GitHub API data.
 - Optional disposable cache for faster repeated runs on larger repositories.
 - Explicit GitHub connector only when `--github-api owner/name` is requested.
@@ -82,6 +83,7 @@ Core mode is local/offline. GitHub Traffic data such as views, clones, referrers
 go test ./...
 go run ./cmd/ginsights doctor .
 go run ./cmd/ginsights build . --out /tmp/ginsights-report
+scripts/capture-ui-screenshots.sh --update-readme
 ```
 
 When using Codex, start with [AGENTS.md](AGENTS.md), then open the active execution plan that matches the task.

@@ -27,7 +27,7 @@ func TestHTMLRendersCoreSections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Pulse", "Contributors", "Code frequency", "Hot files", "Metric provenance"} {
+	for _, want := range []string{"Repository atlas", "Net local change", "Latest changes", "Contributors", "Code frequency", "Hot files", "Metric provenance"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("HTML missing %q", want)
 		}
@@ -50,12 +50,13 @@ func TestHTMLRendersDenseCommitHeatmap(t *testing.T) {
 	}
 	for _, want := range []string{
 		`class="heatmap-shell"`,
-		`aria-label="commit activity heatmap, 7 days"`,
+		`class="heatmap-months"`,
+		`aria-label="commit activity heatmap, 371 days"`,
 		`title="2026-06-30: 0 commits"`,
 		`class="heat l0"`,
 		`class="heat l4"`,
 		`class="heatmap-legend"`,
-		`2 active days · 5 commits`,
+		`2 active days · 5 commits in the last year`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("HTML missing dense heatmap marker %q", want)
