@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Complete.
 
 ## Goal
 
@@ -53,11 +53,22 @@ brew audit --strict --formula packaging/homebrew/Formula/ginsights.rb
 - 2026-09-21: Treat each Git root as an independent repository and aggregate derived snapshots rather than flattening histories into a fictional repository.
 - 2026-09-21: Discover filesystem Git boundaries directly because Avia intentionally ignores its nested repositories from the parent repository.
 - 2026-09-21: Use an immutable tagged release source for Homebrew; the repository currently has no tags or releases, so final SHA verification follows release publication.
+- 2026-09-21: Publish the first stable source tag as `v0.1.0`; its GitHub archive SHA256 is `2e3c3458d918ca5eedb3ab4024d27855ba95939581d453274cd065cc00c78b1b`.
+
+## Progress log
+
+- 2026-09-21: Added explicit `--workspace` support to `serve`, `build`, and `json` with filesystem Git-root discovery, per-repository snapshots, aggregate metrics, partial-failure reporting, and workspace HTML inventory.
+- 2026-09-21: Prevented parent working-tree language and test scans from crossing nested Git boundaries.
+- 2026-09-21: Fixed the source installer to build from the cloned module with `go -C` and added an unrelated-working-directory integration test.
+- 2026-09-21: Published `v0.1.0`, pinned the formula to the tagged archive and verified SHA256, and updated `marlonjd/homebrew-tap` at commit `703999a`.
+- 2026-09-21: Verified the installed Homebrew binary and the published source installer against the four-repository Avia workspace.
+- 2026-09-21: Browser verification passed for the workspace atlas and repository inventory with no console warnings, errors, or framework overlay.
+- 2026-09-21: Final native gates passed: `go test ./...`, `go vet ./...`, `ginsights doctor .`, static report build, shell syntax, Ruby syntax, strict Homebrew audit, and `brew test marlonjd/tap/ginsights`.
 
 ## Next actions
 
-1. Add workspace discovery and aggregation tests.
-2. Wire `--workspace` through CLI, report, and server paths.
-3. Fix and integration-test the source installer.
-4. Prepare the versioned Homebrew formula and complete it against the published release artifact.
-5. Run native verification and move this plan to `completed/` when all locally authorized work is complete.
+None.
+
+## Completion note
+
+`ginsights serve . --workspace` now analyzes independent nested repositories without flattening their boundaries. Both public installation paths are operational: Homebrew installs stable `0.1.0`, and the source installer builds correctly from an unrelated Git working directory.
