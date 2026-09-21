@@ -9,6 +9,7 @@ Local-first repository insights for commits, contributors, churn, language mix, 
 ## Highlights
 
 - Static HTML and JSON output that work offline.
+- Explicit workspace mode for a directory containing multiple independent Git repositories.
 - A full-width commit activity calendar, latest-change strip, contributor table, code-frequency view, hot files, languages, and repository health in one report.
 - A local-first overview that shows net line change, commit volume, authors, touched files, primary language, and health signals without ranking people.
 - Metric provenance labels so local Git data stays separate from optional GitHub API data.
@@ -43,6 +44,7 @@ The shell installer builds from source and installs to `~/.local/bin/ginsights` 
 
 ```bash
 ginsights serve . --port 43117
+ginsights serve . --workspace
 ginsights build . --out report
 ginsights json .
 ```
@@ -51,6 +53,7 @@ Useful options:
 
 ```bash
 ginsights serve . --since 2026-07-01
+ginsights build ~/src/workspace --workspace --out report
 ginsights build . --out report --no-cache
 GINSIGHTS_GITHUB_TOKEN=... ginsights build . --out report --github-api owner/name
 ginsights cache-clear .

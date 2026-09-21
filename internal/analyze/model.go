@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/ginsights/internal/gitlog"
+	"github.com/multica-ai/ginsights/internal/repository"
 )
 
 type Snapshot struct {
@@ -24,6 +25,23 @@ type Snapshot struct {
 	Health      []HealthSignal  `json:"health"`
 	Provenance  []ProvenanceRow `json:"provenance"`
 	GitHub      *GitHubMetrics  `json:"github,omitempty"`
+	Workspace   *Workspace      `json:"workspace,omitempty"`
+}
+
+type Workspace struct {
+	RepositoryCount int                   `json:"repository_count"`
+	Repositories    []WorkspaceRepository `json:"repositories"`
+	Errors          []WorkspaceError      `json:"errors,omitempty"`
+}
+
+type WorkspaceRepository struct {
+	RelativePath string   `json:"relative_path"`
+	Snapshot     Snapshot `json:"snapshot"`
+}
+
+type WorkspaceError struct {
+	RelativePath string `json:"relative_path"`
+	Error        string `json:"error"`
 }
 
 type Totals struct {
@@ -59,11 +77,12 @@ type DayStat struct {
 }
 
 type FileStat struct {
-	Path      string `json:"path"`
-	Commits   int    `json:"commits"`
-	Additions int    `json:"additions"`
-	Deletions int    `json:"deletions"`
-	Churn     int    `json:"churn"`
+	Repository string `json:"repository,omitempty"`
+	Path       string `json:"path"`
+	Commits    int    `json:"commits"`
+	Additions  int    `json:"additions"`
+	Deletions  int    `json:"deletions"`
+	Churn      int    `json:"churn"`
 }
 
 type LanguageStat struct {
@@ -73,6 +92,7 @@ type LanguageStat struct {
 }
 
 type RecentCommit struct {
+	Repository   string    `json:"repository,omitempty"`
 	Hash         string    `json:"hash"`
 	ShortHash    string    `json:"short_hash"`
 	AuthorName   string    `json:"author_name"`
@@ -336,11 +356,15 @@ func anyExists(repo string, paths []string) (bool, string) {
 
 func hasTests(repo string) bool {
 	found := false
+	root := filepath.Clean(repo)
 	_ = filepath.WalkDir(repo, func(path string, d os.DirEntry, err error) error {
 		if err != nil || found {
 			return nil
 		}
 		if d.IsDir() {
+			if path != root && repository.IsRoot(path) {
+				return filepath.SkipDir
+			}
 			name := d.Name()
 			if name == ".git" || name == "vendor" || name == "node_modules" || name == "report" {
 				return filepath.SkipDir

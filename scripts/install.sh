@@ -109,7 +109,7 @@ else
 fi
 
 run mkdir -p "$install_dir"
-run go build -trimpath -ldflags="-s -w" -o "$install_dir/ginsights" "$tmp_dir/src/cmd/ginsights"
+run go -C "$tmp_dir/src" build -trimpath -ldflags="-s -w" -o "$install_dir/ginsights" ./cmd/ginsights
 
 if [ "$dry_run" -eq 1 ]; then
   echo "Dry run complete; no files installed."

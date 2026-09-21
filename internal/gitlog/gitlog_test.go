@@ -62,6 +62,33 @@ func TestCollectorListsHashesAndCollectsSelectedHashes(t *testing.T) {
 	}
 }
 
+func TestCollectorTopLevelResolvesRepositoryRootFromSubdirectory(t *testing.T) {
+	repo := testGitRepo(t)
+	subdirectory := filepath.Join(repo, "internal", "demo")
+	if err := os.MkdirAll(subdirectory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	root, err := NewCollector(subdirectory).TopLevel(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.Abs(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err = filepath.EvalSymlinks(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != want {
+		t.Fatalf("root = %q, want %q", root, want)
+	}
+}
+
 func BenchmarkParseLog(b *testing.B) {
 	input := benchmarkLogFixture(500)
 	b.ReportAllocs()

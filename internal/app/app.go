@@ -18,6 +18,7 @@ import (
 	"github.com/multica-ai/ginsights/internal/githubapi"
 	"github.com/multica-ai/ginsights/internal/gitlog"
 	"github.com/multica-ai/ginsights/internal/report"
+	"github.com/multica-ai/ginsights/internal/repository"
 	"github.com/multica-ai/ginsights/internal/server"
 )
 
@@ -58,10 +59,11 @@ func runServe(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
+	workspaceMode := fs.Bool("workspace", false, "discover and aggregate nested Git repositories")
 	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "since": true, "github-api": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo, *workspaceMode)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -87,10 +89,11 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
+	workspaceMode := fs.Bool("workspace", false, "discover and aggregate nested Git repositories")
 	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"out": true, "since": true, "github-api": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo, *workspaceMode)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -117,10 +120,11 @@ func runJSON(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
+	workspaceMode := fs.Bool("workspace", false, "discover and aggregate nested Git repositories")
 	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"since": true, "github-api": true})); err != nil {
 		return 2
 	}
-	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo)
+	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo, *workspaceMode)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -183,10 +187,14 @@ type snapshotOptions struct {
 	Since      time.Time
 	NoCache    bool
 	GitHubRepo string
+	Workspace  bool
 }
 
-func snapshotOptionsFromFlags(sinceValue string, noCache bool, githubRepo string) (snapshotOptions, error) {
-	opts := snapshotOptions{NoCache: noCache, GitHubRepo: strings.TrimSpace(githubRepo)}
+func snapshotOptionsFromFlags(sinceValue string, noCache bool, githubRepo string, workspaceMode bool) (snapshotOptions, error) {
+	opts := snapshotOptions{NoCache: noCache, GitHubRepo: strings.TrimSpace(githubRepo), Workspace: workspaceMode}
+	if opts.Workspace && opts.GitHubRepo != "" {
+		return snapshotOptions{}, fmt.Errorf("--workspace cannot be combined with --github-api; analyze that repository separately")
+	}
 	if sinceValue == "" {
 		return opts, nil
 	}
@@ -207,6 +215,13 @@ func parseSince(value string) (time.Time, error) {
 }
 
 func snapshot(ctx context.Context, repo string, opts snapshotOptions) (analyze.Snapshot, error) {
+	if opts.Workspace {
+		return workspaceSnapshot(ctx, repo, opts)
+	}
+	return repositorySnapshot(ctx, repo, opts, time.Now())
+}
+
+func repositorySnapshot(ctx context.Context, repo string, opts snapshotOptions, generatedAt time.Time) (analyze.Snapshot, error) {
 	collector := gitlog.NewCollector(repo)
 	var history []gitlog.Commit
 	var err error
@@ -224,11 +239,62 @@ func snapshot(ctx context.Context, repo string, opts snapshotOptions) (analyze.S
 	if !opts.Since.IsZero() {
 		history = filterCommitsSince(history, opts.Since)
 	}
-	snap := analyze.BuildSnapshot(repo, history, time.Now())
+	snap := analyze.BuildSnapshot(repo, history, generatedAt)
 	if opts.GitHubRepo != "" {
 		mergeGitHubMetrics(ctx, &snap, opts.GitHubRepo)
 	}
 	return snap, nil
+}
+
+func workspaceSnapshot(ctx context.Context, root string, opts snapshotOptions) (analyze.Snapshot, error) {
+	roots, err := repository.Discover(root)
+	if err != nil {
+		return analyze.Snapshot{}, err
+	}
+	generatedAt := time.Now()
+	repositories := make([]analyze.WorkspaceRepository, 0, len(roots))
+	var failures []analyze.WorkspaceError
+	for _, discovered := range roots {
+		actualRoot, err := gitlog.NewCollector(discovered.Path).TopLevel(ctx)
+		if err != nil {
+			failures = append(failures, analyze.WorkspaceError{RelativePath: discovered.RelativePath, Error: err.Error()})
+			continue
+		}
+		if !sameFilePath(actualRoot, discovered.Path) {
+			failures = append(failures, analyze.WorkspaceError{
+				RelativePath: discovered.RelativePath,
+				Error:        fmt.Sprintf("Git marker did not resolve to this repository root; resolved to %s", actualRoot),
+			})
+			continue
+		}
+		snap, err := repositorySnapshot(ctx, discovered.Path, opts, generatedAt)
+		if err != nil {
+			failures = append(failures, analyze.WorkspaceError{RelativePath: discovered.RelativePath, Error: err.Error()})
+			continue
+		}
+		repositories = append(repositories, analyze.WorkspaceRepository{
+			RelativePath: discovered.RelativePath,
+			Snapshot:     snap,
+		})
+	}
+	if len(repositories) == 0 {
+		return analyze.Snapshot{}, fmt.Errorf("analyze workspace %s: all %d repositories failed", root, len(roots))
+	}
+	return analyze.BuildWorkspaceSnapshot(root, repositories, failures, generatedAt), nil
+}
+
+func sameFilePath(left, right string) bool {
+	leftAbs, leftErr := filepath.Abs(left)
+	rightAbs, rightErr := filepath.Abs(right)
+	if leftErr != nil || rightErr != nil {
+		return filepath.Clean(left) == filepath.Clean(right)
+	}
+	leftResolved, leftErr := filepath.EvalSymlinks(leftAbs)
+	rightResolved, rightErr := filepath.EvalSymlinks(rightAbs)
+	if leftErr == nil && rightErr == nil {
+		return leftResolved == rightResolved
+	}
+	return filepath.Clean(leftAbs) == filepath.Clean(rightAbs)
 }
 
 func mergeGitHubMetrics(ctx context.Context, snap *analyze.Snapshot, repo string) {
@@ -307,14 +373,15 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `ginsights - GitHub-style local repository insights
 
 Usage:
-  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD] [--no-cache] [--github-api owner/name]
-  ginsights build [repo] --out report [--since YYYY-MM-DD] [--no-cache] [--github-api owner/name]
-  ginsights json [repo] [--since YYYY-MM-DD] [--no-cache] [--github-api owner/name]
+  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
+  ginsights build [repo] --out report [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
+  ginsights json [repo] [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
   ginsights cache-clear [repo]
   ginsights doctor [repo]
 
 Examples:
   ginsights serve .
+  ginsights serve . --workspace
   ginsights build ~/src/project --out report --since 2026-07-01
   ginsights json . --since 2026-07-01 > insights.json`)
 }

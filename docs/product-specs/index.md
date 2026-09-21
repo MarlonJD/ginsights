@@ -11,6 +11,7 @@ A developer with a private or public Git repo who wants activity/contributor/cod
 ## MVP jobs
 
 - Analyze local Git history.
+- Analyze an explicitly requested multi-repository workspace without flattening repository boundaries.
 - Host a local dashboard and print the URL.
 - Export a static HTML report for CI artifacts or GitHub Pages.
 - Show only data that can be derived from local repo contents.
@@ -33,4 +34,5 @@ A developer with a private or public Git repo who wants activity/contributor/cod
 See also:
 
 - [Disposable cache format](cache-format.md)
+- [Multi-repository workspace analysis](workspace-analysis.md)
 - [Optional GitHub API connector](github-api-connector.md)

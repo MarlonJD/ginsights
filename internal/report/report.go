@@ -79,6 +79,7 @@ type viewModel struct {
 	HeatmapSummary   string
 	WeeklyRows       []weeklyRow
 	WeeklySummary    string
+	WorkspaceRows    []workspaceRow
 }
 
 type heatmapDay struct {
@@ -100,6 +101,17 @@ type weeklyRow struct {
 	AddWidth int
 	DelWidth int
 	Tooltip  string
+}
+
+type workspaceRow struct {
+	RelativePath    string
+	Name            string
+	Commits         int
+	Authors         int
+	PrimaryLanguage string
+	HealthPresent   int
+	HealthTotal     int
+	LastActivity    time.Time
 }
 
 func makeView(snap analyze.Snapshot) viewModel {
@@ -140,7 +152,37 @@ func makeView(snap analyze.Snapshot) viewModel {
 	}
 	v.HeatmapDays, v.HeatmapMonths, v.HeatmapWeeks, v.HeatmapSummary = buildHeatmapDays(snap.Daily, snap.GeneratedAt)
 	v.WeeklyRows, v.WeeklySummary = buildWeeklyRows(snap.Weekly, v.MaxWeeklyLines)
+	if snap.Workspace != nil {
+		v.WorkspaceRows = makeWorkspaceRows(snap.Workspace.Repositories)
+	}
 	return v
+}
+
+func makeWorkspaceRows(repositories []analyze.WorkspaceRepository) []workspaceRow {
+	rows := make([]workspaceRow, 0, len(repositories))
+	for _, repository := range repositories {
+		snap := repository.Snapshot
+		row := workspaceRow{
+			RelativePath: repository.RelativePath,
+			Name:         snap.RepoName,
+			Commits:      snap.Totals.Commits,
+			Authors:      snap.Totals.Authors,
+			HealthTotal:  len(snap.Health),
+		}
+		if len(snap.Languages) > 0 {
+			row.PrimaryLanguage = snap.Languages[0].Name
+		}
+		if len(snap.Recent) > 0 {
+			row.LastActivity = snap.Recent[0].Date
+		}
+		for _, signal := range snap.Health {
+			if signal.Present {
+				row.HealthPresent++
+			}
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 func buildHeatmapDays(daily []analyze.DayStat, anchor time.Time) ([]heatmapDay, []heatmapMonth, int, string) {
@@ -525,6 +567,7 @@ const reportTemplate = `<!doctype html>
     .files-table { min-width:760px; }
     .language-table { min-width:520px; }
     .provenance-table { min-width:560px; }
+    .repositories-table { min-width:760px; }
     .code-frequency-table { min-width:680px; }
     .code-frequency-table th:nth-child(3), .code-frequency-table td:nth-child(3),
     .code-frequency-table th:nth-child(5), .code-frequency-table td:nth-child(5),
@@ -601,11 +644,12 @@ const reportTemplate = `<!doctype html>
         <span class="brand-mark">gi</span>
         <span>
           <span class="brand-title">ginsights</span>
-          <span class="brand-subtitle">offline repository insights</span>
+          <span class="brand-subtitle">offline {{if .Workspace}}workspace{{else}}repository{{end}} insights</span>
         </span>
       </a>
       <nav class="topnav" aria-label="Report sections">
         <a href="#pulse">Atlas</a>
+{{if .Workspace}}        <a href="#repositories">Repositories</a>{{end}}
         <a href="#commits">Activity</a>
         <a href="#code-frequency">Frequency</a>
         <a href="#contributors">Contributors</a>
@@ -622,12 +666,13 @@ const reportTemplate = `<!doctype html>
         <div class="atlas-main">
           <div class="atlas-copy">
             <div>
-              <p class="kicker">Repository atlas</p>
+              <p class="kicker">{{if .Workspace}}Workspace atlas{{else}}Repository atlas{{end}}</p>
               <h1 id="repo-title">{{.RepoName}}</h1>
               <p class="repo-path">{{.RepoPath}}</p>
             </div>
-            <div class="chip-row" aria-label="Repository context">
-              <span class="chip local">local Git source</span>
+            <div class="chip-row" aria-label="{{if .Workspace}}Workspace{{else}}Repository{{end}} context">
+              <span class="chip local">local Git {{if .Workspace}}sources{{else}}source{{end}}</span>
+{{if .Workspace}}              <span class="chip">{{.Workspace.RepositoryCount}} repositories</span>{{end}}
               {{if .PrimaryLanguage}}<span class="chip">{{.PrimaryLanguage}}</span>{{end}}
               {{if .HealthTotal}}<span class="chip health">{{.HealthPresent}}/{{.HealthTotal}} health signals</span>{{end}}
               <span class="chip">generated locally</span>
@@ -638,7 +683,7 @@ const reportTemplate = `<!doctype html>
             <div>
               <div class="signal-label">Net local change</div>
               <div class="signal-value {{.NetLinesClass}}">{{.NetLinesLabel}}</div>
-              <div class="signal-note">lines changed across local Git history</div>
+              <div class="signal-note">lines changed across local Git {{if .Workspace}}histories{{else}}history{{end}}</div>
             </div>
             {{if .TotalLineChanges}}
             <div class="balance-track" aria-label="+{{formatInt .Totals.Additions}} additions and -{{formatInt .Totals.Deletions}} deletions">
@@ -687,6 +732,28 @@ const reportTemplate = `<!doctype html>
         </div>
       </section>
 
+{{if .Workspace}}
+      <section id="repositories" class="panel wide">
+        <div class="section-head">
+          <div>
+            <h2>Repositories</h2>
+            <p class="section-summary">Independent Git histories discovered under this workspace</p>
+          </div>
+        </div>
+        {{if .WorkspaceRows}}
+        <div class="table-scroll">
+          <table class="repositories-table">
+            <thead><tr><th>Repository</th><th>Path</th><th>Commits</th><th>Authors</th><th>Primary language</th><th>Health</th><th>Last activity</th></tr></thead>
+            <tbody>{{range .WorkspaceRows}}
+              <tr><td><strong>{{.Name}}</strong></td><td><code>{{.RelativePath}}</code></td><td>{{formatInt .Commits}}</td><td>{{formatInt .Authors}}</td><td>{{if .PrimaryLanguage}}{{.PrimaryLanguage}}{{else}}—{{end}}</td><td>{{.HealthPresent}}/{{.HealthTotal}}</td><td>{{if .LastActivity.IsZero}}—{{else}}{{formatDate .LastActivity}}{{end}}</td></tr>
+            {{end}}</tbody>
+          </table>
+        </div>
+        {{else}}<p class="empty">No repositories were analyzed.</p>{{end}}
+        {{if .Workspace.Errors}}<ul class="warning-list">{{range .Workspace.Errors}}<li><code>{{.RelativePath}}</code>: {{.Error}}</li>{{end}}</ul>{{end}}
+      </section>
+{{end}}
+
       <section class="change-tape" aria-labelledby="latest-changes-title">
         <div class="section-head">
           <div>
@@ -696,7 +763,7 @@ const reportTemplate = `<!doctype html>
         </div>
         {{if .Recent}}
         <div class="change-grid">
-          {{range .Recent}}<div class="change-item"><code class="change-hash">{{.ShortHash}}</code><span class="change-subject">{{.Subject}}</span><span class="change-meta">{{.AuthorName}} · {{formatDate .Date}}</span></div>{{end}}
+          {{range .Recent}}<div class="change-item"><code class="change-hash">{{.ShortHash}}</code><span class="change-subject">{{.Subject}}</span><span class="change-meta">{{if .Repository}}{{.Repository}} · {{end}}{{.AuthorName}} · {{formatDate .Date}}</span></div>{{end}}
         </div>
         {{else}}<p class="empty">No recent commits found.</p>{{end}}
       </section>
@@ -762,9 +829,9 @@ const reportTemplate = `<!doctype html>
         {{if .HotFiles}}
         <div class="table-scroll">
           <table class="files-table">
-            <thead><tr><th>Path</th><th>Commits</th><th>Churn</th><th>Additions</th><th>Deletions</th></tr></thead>
+            <thead><tr>{{if .Workspace}}<th>Repository</th>{{end}}<th>Path</th><th>Commits</th><th>Churn</th><th>Additions</th><th>Deletions</th></tr></thead>
             <tbody>{{range .HotFiles}}
-              <tr><td><code>{{.Path}}</code></td><td>{{formatInt .Commits}}</td><td><div class="barrow"><span>{{formatInt .Churn}}</span><div class="bartrack"><div class="bar" style="width:{{barWidth .Churn $.MaxFileChurn}}%"></div></div></div></td><td>+{{formatInt .Additions}}</td><td>-{{formatInt .Deletions}}</td></tr>
+              <tr>{{if $.Workspace}}<td>{{.Repository}}</td>{{end}}<td><code>{{.Path}}</code></td><td>{{formatInt .Commits}}</td><td><div class="barrow"><span>{{formatInt .Churn}}</span><div class="bartrack"><div class="bar" style="width:{{barWidth .Churn $.MaxFileChurn}}%"></div></div></div></td><td>+{{formatInt .Additions}}</td><td>-{{formatInt .Deletions}}</td></tr>
             {{end}}</tbody>
           </table>
         </div>
@@ -795,7 +862,7 @@ const reportTemplate = `<!doctype html>
 {{end}}
 
       <section id="health" class="panel wide">
-        <div class="section-head"><h2>Repository health</h2></div>
+        <div class="section-head"><h2>{{if .Workspace}}Workspace repository health{{else}}Repository health{{end}}</h2></div>
         <div class="health-list">{{range .Health}}
           <div class="health-row"><span class="pill {{statusClass .Present}}">{{statusText .Present}}</span><span><strong>{{.Name}}</strong><br><span class="muted">{{.Detail}}</span></span></div>
         {{end}}</div>

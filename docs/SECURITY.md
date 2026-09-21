@@ -4,6 +4,8 @@
 
 Default mode is local-only and does not send repository data anywhere.
 
+Workspace discovery is also local-only. It scans filesystem Git boundaries without following symlinked directory trees and does not contact repository remotes.
+
 ## GitHub connector rules
 
 - Connector must be opt-in.

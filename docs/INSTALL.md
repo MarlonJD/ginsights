@@ -24,15 +24,16 @@ The Homebrew formula source lives in this repository at:
 packaging/homebrew/Formula/ginsights.rb
 ```
 
-Tap maintenance flow:
+Stable tap maintenance flow:
 
 ```bash
-git clone https://github.com/marlonjd/homebrew-tap.git
-mkdir -p homebrew-tap/Formula
-cp packaging/homebrew/Formula/ginsights.rb homebrew-tap/Formula/ginsights.rb
+version=v0.1.0
+archive="https://github.com/MarlonJD/ginsights/archive/refs/tags/${version}.tar.gz"
+curl -L "$archive" -o "/tmp/ginsights-${version}.tar.gz"
+shasum -a 256 "/tmp/ginsights-${version}.tar.gz"
 ```
 
-The current formula builds from source from `https://github.com/MarlonJD/ginsights.git` on `main`. That keeps Homebrew installation available before prebuilt release artifacts exist. When tagged releases are cut, the formula can switch to a versioned tarball and SHA256.
+Update the formula `url` and `sha256` only after the tag is published, verify the downloaded digest, run the formula checks, and then copy the verified formula to `marlonjd/homebrew-tap`. The stable formula must never point at the mutable `main` branch. The optional `head` source may continue to track `main` for explicit `brew install --HEAD` use.
 
 ## Shell Installer
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -124,13 +125,28 @@ func (c Collector) runGit(ctx context.Context, args []string) ([]byte, error) {
 }
 
 func (c Collector) ensureRepo(ctx context.Context) error {
+	_, err := c.TopLevel(ctx)
+	return err
+}
+
+// TopLevel resolves the actual Git root used for the collector path.
+func (c Collector) TopLevel(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "-C", c.repo, "rev-parse", "--show-toplevel")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("not a git repository or git unavailable: %w: %s", err, strings.TrimSpace(stderr.String()))
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("not a git repository or git unavailable: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
-	return nil
+	root := strings.TrimSpace(string(out))
+	if root == "" {
+		return "", fmt.Errorf("not a git repository: git returned an empty root for %s", c.repo)
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve git repository root %s: %w", root, err)
+	}
+	return abs, nil
 }
 
 func parseLog(data []byte) ([]Commit, error) {

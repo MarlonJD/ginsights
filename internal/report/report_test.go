@@ -125,6 +125,30 @@ func TestHTMLRendersGitHubAPISectionWithProvenance(t *testing.T) {
 	}
 }
 
+func TestHTMLRendersWorkspaceRepositoryInventory(t *testing.T) {
+	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	child := analyze.Snapshot{
+		RepoName:    "surveil",
+		RepoPath:    "/tmp/avia/apps/surveil",
+		GeneratedAt: now,
+		Totals:      analyze.Totals{Commits: 3, Authors: 1},
+		Languages:   []analyze.LanguageStat{{Name: "TypeScript", Bytes: 100, Percent: 100}},
+		Recent:      []analyze.RecentCommit{{Date: now, Subject: "change"}},
+		Health:      []analyze.HealthSignal{{Name: "README", Present: true}},
+	}
+	snap := analyze.BuildWorkspaceSnapshot("/tmp/avia", []analyze.WorkspaceRepository{{RelativePath: "apps/surveil", Snapshot: child}}, nil, now)
+
+	html, err := HTML(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Workspace atlas", "1 repositories", "Independent Git histories", "apps/surveil", "TypeScript", "Workspace repository health"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("workspace HTML missing %q", want)
+		}
+	}
+}
+
 func TestHTMLMatchesGoldenFixture(t *testing.T) {
 	html, err := HTML(goldenSnapshot())
 	if err != nil {

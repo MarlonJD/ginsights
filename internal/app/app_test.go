@@ -63,6 +63,112 @@ func TestRunBuildFiltersCommitsSince(t *testing.T) {
 	}
 }
 
+func TestRunJSONWorkspaceDiscoversAndAggregatesNestedRepositories(t *testing.T) {
+	workspace := t.TempDir()
+	initGitRepo(t, workspace)
+	if err := os.WriteFile(filepath.Join(workspace, ".gitignore"), []byte("/apps/surveil/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commitFile(t, workspace, "README.md", "# Workspace\n", "2026-09-20T12:00:00+00:00", "workspace change")
+
+	nested := filepath.Join(workspace, "apps", "surveil")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, nested)
+	commitFile(t, nested, "main.go", "package main\n", "2026-09-21T12:00:00+00:00", "surveil change")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"json", workspace, "--workspace", "--no-cache"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run json --workspace exit = %d, stderr = %s", code, stderr.String())
+	}
+	var snap analyze.Snapshot
+	if err := json.Unmarshal(stdout.Bytes(), &snap); err != nil {
+		t.Fatalf("decode workspace JSON: %v\n%s", err, stdout.String())
+	}
+	if snap.Workspace == nil || snap.Workspace.RepositoryCount != 2 || len(snap.Workspace.Repositories) != 2 {
+		t.Fatalf("workspace = %+v, want two analyzed repositories", snap.Workspace)
+	}
+	if snap.Totals.Commits != 2 || snap.Totals.FilesChanged != 2 {
+		t.Fatalf("totals = %+v, want both repositories aggregated", snap.Totals)
+	}
+	if got := snap.Workspace.Repositories[1].RelativePath; got != filepath.Join("apps", "surveil") {
+		t.Fatalf("nested relative path = %q, want apps/surveil", got)
+	}
+	if len(snap.Recent) != 2 || snap.Recent[0].Repository != "apps/surveil" {
+		t.Fatalf("recent = %+v, want repository labels", snap.Recent)
+	}
+}
+
+func TestRunWorkspaceRejectsSingleGitHubRepositoryConnector(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"json", ".", "--workspace", "--github-api", "acme/widgets"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("Run exit = %d, want 2; stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "--workspace cannot be combined with --github-api") {
+		t.Fatalf("stderr = %q, want workspace connector guidance", stderr.String())
+	}
+}
+
+func TestRunJSONWorkspaceKeepsSuccessfulRepositoriesWhenOneFails(t *testing.T) {
+	workspace := t.TempDir()
+	initGitRepo(t, workspace)
+	commitFile(t, workspace, "README.md", "# Workspace\n", "2026-09-20T12:00:00+00:00", "workspace change")
+	broken := filepath.Join(workspace, "broken")
+	if err := os.MkdirAll(filepath.Join(broken, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"json", workspace, "--workspace", "--no-cache"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run json --workspace exit = %d, stderr = %s", code, stderr.String())
+	}
+	var snap analyze.Snapshot
+	if err := json.Unmarshal(stdout.Bytes(), &snap); err != nil {
+		t.Fatalf("decode workspace JSON: %v\n%s", err, stdout.String())
+	}
+	if snap.Workspace == nil || len(snap.Workspace.Repositories) != 1 || len(snap.Workspace.Errors) != 1 {
+		t.Fatalf("workspace = %+v, want one result and one error", snap.Workspace)
+	}
+	if snap.Workspace.Errors[0].RelativePath != "broken" {
+		t.Fatalf("workspace errors = %+v, want broken path", snap.Workspace.Errors)
+	}
+	if snap.Totals.Commits != 1 {
+		t.Fatalf("totals = %+v, want successful root repository retained", snap.Totals)
+	}
+}
+
+func TestSourceInstallerBuildsFromUnrelatedGitRepository(t *testing.T) {
+	packageDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectRoot := filepath.Clean(filepath.Join(packageDir, "..", ".."))
+	unrelated := t.TempDir()
+	initGitRepo(t, unrelated)
+	installDir := filepath.Join(t.TempDir(), "bin")
+
+	cmd := exec.Command("bash", filepath.Join(projectRoot, "scripts", "install.sh"),
+		"--repo", projectRoot,
+		"--ref", "HEAD",
+		"--install-dir", installDir,
+	)
+	cmd.Dir = unrelated
+	cmd.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "go-cache"))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("installer failed from unrelated repository: %v\n%s", err, string(output))
+	}
+	binary := filepath.Join(installDir, "ginsights")
+	help := exec.Command(binary, "help")
+	if output, err := help.CombinedOutput(); err != nil {
+		t.Fatalf("installed binary failed: %v\n%s", err, string(output))
+	}
+}
+
 func TestRunJSONRejectsInvalidSince(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"json", "--since", "07/01/2026", "."}, &stdout, &stderr)
@@ -172,10 +278,15 @@ func TestFilterCommitsSinceIncludesBoundary(t *testing.T) {
 func testGitRepo(t *testing.T) string {
 	t.Helper()
 	repo := t.TempDir()
+	initGitRepo(t, repo)
+	return repo
+}
+
+func initGitRepo(t *testing.T, repo string) {
+	t.Helper()
 	runGit(t, repo, "init")
 	runGit(t, repo, "config", "user.name", "Ada")
 	runGit(t, repo, "config", "user.email", "ada@example.com")
-	return repo
 }
 
 func commitFile(t *testing.T, repo, name, body, date, message string) {

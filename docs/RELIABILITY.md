@@ -6,6 +6,7 @@
 - Non-Git directories should produce a clear error.
 - Binary file changes in `git numstat` should not crash analysis.
 - Empty repositories should render a useful empty-state report.
+- Workspace mode should preserve successful repository results and report a path-scoped error when another discovered repository fails.
 - Static reports should be self-contained.
 
 ## Performance targets

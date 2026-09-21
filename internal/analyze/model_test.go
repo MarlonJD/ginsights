@@ -2,6 +2,8 @@ package analyze
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -46,6 +48,34 @@ func TestBuildSnapshotAggregates(t *testing.T) {
 	}
 	if len(snap.HotFiles) == 0 || snap.HotFiles[0].Path != "main.go" {
 		t.Fatalf("hot files = %+v, want main.go first", snap.HotFiles)
+	}
+}
+
+func TestWorkingTreeAnalysisStopsAtNestedRepositoryBoundaries(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "nested")
+	if err := os.MkdirAll(filepath.Join(nested, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nested, "main.go"), []byte("package nested\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nested, "main_test.go"), []byte("package nested\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	languages := DetectLanguages(root)
+	if len(languages) != 1 || languages[0].Name != "Markdown" {
+		t.Fatalf("languages = %+v, want only root Markdown", languages)
+	}
+	health := DetectHealth(root)
+	for _, signal := range health {
+		if signal.Name == "Tests" && signal.Present {
+			t.Fatalf("nested repository tests leaked into root health: %+v", health)
+		}
 	}
 }
 

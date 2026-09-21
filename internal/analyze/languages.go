@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/multica-ai/ginsights/internal/repository"
 )
 
 var languageByExt = map[string]string{
@@ -43,11 +45,15 @@ var languageByExt = map[string]string{
 func DetectLanguages(repo string) []LanguageStat {
 	totals := map[string]int64{}
 	var grand int64
+	root := filepath.Clean(repo)
 	_ = filepath.WalkDir(repo, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
+			if path != root && repository.IsRoot(path) {
+				return filepath.SkipDir
+			}
 			switch d.Name() {
 			case ".git", "vendor", "node_modules", "report", ".ginsights", ".ginsights-cache", "dist", "bin":
 				return filepath.SkipDir

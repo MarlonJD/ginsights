@@ -2,6 +2,8 @@
 
 `ginsights` may create `.ginsights-cache/commits-v1.json` inside the analyzed repository.
 
+Workspace mode keeps one cache inside each successfully analyzed repository. It does not create a shared cross-repository history cache at the workspace root unless that root is itself a repository.
+
 ## Purpose
 
 The cache stores parsed `gitlog.Commit` records keyed by immutable commit hash so repeated `serve`, `build`, and `json` runs can avoid reparsing unchanged commits.
