@@ -35,6 +35,8 @@ shasum -a 256 "/tmp/ginsights-${version}.tar.gz"
 
 Update the formula `url` and `sha256` only after the tag is published, verify the downloaded digest, run the formula checks, and then copy the verified formula to `marlonjd/homebrew-tap`. The stable formula must never point at the mutable `main` branch. The optional `head` source may continue to track `main` for explicit `brew install --HEAD` use.
 
+The current stable formula installs `v0.1.0` from its tagged GitHub archive.
+
 ## Shell Installer
 
 Install from the default GitHub source:
