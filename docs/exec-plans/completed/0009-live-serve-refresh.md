@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation verified locally; `v0.1.1` published; Homebrew and running-server updates in progress.
+Complete. `v0.1.1` published and local Homebrew upgraded; server handed over for manual startup.
 
 ## Goal
 
@@ -54,6 +54,10 @@ Observed locally:
 - The harness helper's adaptive `check` passed with zero errors and warnings after consolidating guidance and repairing Markdown routes.
 - The final candidate passed the same browser flow with the default five-second interval, with zero errors during healthy refresh and only the expected HTTP 503 during the injected failure.
 - Published source/tag `e353330` as `v0.1.1`. Downloaded its GitHub archive and verified SHA256 `656e280a0837c574e5066451e32410ebbf854c868892f311077aa95a7ff24791` before updating the formula.
+- The published source installer built successfully and its binary passed the live browser scenarios.
+- `brew audit --strict --formula marlonjd/tap/ginsights`, Ruby syntax, `brew upgrade marlonjd/tap/ginsights`, and `brew test marlonjd/tap/ginsights` passed. The installed version is `0.1.1`; its binary passed the same live browser scenarios.
+- Updated the ignored local `bin/ginsights` build. Main distribution metadata is at `d2d17ee`; the verified remote tap update is `bb1101b`.
+- Restarted the existing Avia workspace server with the upgraded binary on port `43117`, then stopped the owned process when the user chose manual startup. The port was released; a new manually started `ginsights` process subsequently appeared and was left running. No owned browser/test processes remain.
 
 ## Decision log
 
@@ -62,9 +66,13 @@ Observed locally:
 - 2026-09-29: The user authorized publication and updating all installation paths, including Homebrew, after verification.
 - 2026-09-29: Baseline native tests passed. The default Go build cache is outside sandbox write roots; use a temporary `GOCACHE` for local verification.
 - 2026-09-29: The user requested anti-overengineering harness adoption. Retain `docs/QUALITY_SCORE.md` because the native doctor consumes it, consolidate `CLAUDE.md`, fix instruction routes, and remove speculative future seams and checker backlogs.
+- 2026-09-29: Current Homebrew disables audit by file path; use the full formula name. Corrected the existing license/head order and `bin/"ginsights"` style required by strict audit.
+- 2026-09-29: The user chose manual startup. Stop the owned server and preserve the user's subsequently started process.
 
 ## Next actions
 
-1. Publish the verified Homebrew formula and upgrade the local installation.
-2. Verify Homebrew and the published source installer.
-3. Restart the existing Avia workspace server on its original loopback port with the upgraded binary.
+None. Manual server startup remains under the user's control.
+
+## Completion note
+
+Served reports now refresh through the existing analysis/cache paths and update open dashboards only when content changes. Repository guidance uses the requested minimal harness adoption. Source installation, Homebrew publication/upgrade, and actual installed-binary browser verification are complete.
