@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation verified locally; release and installation updates pending.
+Implementation verified locally; `v0.1.1` published; Homebrew and running-server updates in progress.
 
 ## Goal
 
@@ -52,7 +52,8 @@ Observed locally:
 - The installed `0.1.0` reproduced stale HTML and JSON after a browser reload despite a new nested commit.
 - The candidate browser flow passed for nested commits, repository addition/removal, uncommitted language changes, unchanged-content stability, and recovery from an intentional refresh failure. No JavaScript page errors were observed.
 - The harness helper's adaptive `check` passed with zero errors and warnings after consolidating guidance and repairing Markdown routes.
-- The final candidate passed the same browser flow with the default five-second interval, with zero errors during healthy refresh and only the expected HTTP 503 during the injected failure. Release/distribution checks remain pending.
+- The final candidate passed the same browser flow with the default five-second interval, with zero errors during healthy refresh and only the expected HTTP 503 during the injected failure.
+- Published source/tag `e353330` as `v0.1.1`. Downloaded its GitHub archive and verified SHA256 `656e280a0837c574e5066451e32410ebbf854c868892f311077aa95a7ff24791` before updating the formula.
 
 ## Decision log
 
@@ -64,6 +65,6 @@ Observed locally:
 
 ## Next actions
 
-1. Publish the patch release and update distribution metadata.
-2. Upgrade and verify Homebrew and the source installer.
+1. Publish the verified Homebrew formula and upgrade the local installation.
+2. Verify Homebrew and the published source installer.
 3. Restart the existing Avia workspace server on its original loopback port with the upgraded binary.
