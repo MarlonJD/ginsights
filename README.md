@@ -10,6 +10,7 @@ Local-first repository insights for commits, contributors, churn, language mix, 
 
 - Static HTML and JSON output that work offline.
 - Explicit workspace mode for a directory containing multiple independent Git repositories.
+- Live served dashboards that refresh repository data and workspace discovery automatically.
 - A full-width commit activity calendar, latest-change strip, contributor table, code-frequency view, hot files, languages, and repository health in one report.
 - A local-first overview that shows net line change, commit volume, authors, touched files, primary language, and health signals without ranking people.
 - Metric provenance labels so local Git data stays separate from optional GitHub API data.
@@ -53,11 +54,14 @@ Useful options:
 
 ```bash
 ginsights serve . --since 2026-07-01
+ginsights serve ~/src/workspace --workspace --refresh 30s
 ginsights build ~/src/workspace --workspace --out report
 ginsights build . --out report --no-cache
 GINSIGHTS_GITHUB_TOKEN=... ginsights build . --out report --github-api owner/name
 ginsights cache-clear .
 ```
+
+`serve` checks for changes every five seconds while the dashboard is open and reloads it when report content changes. Use `--refresh 30s` for a larger workspace. New commits and added or removed nested repositories appear without restarting the server. Commit statistics reflect committed Git history; language and health signals also reflect the current filesystem. Static `build` reports remain snapshots.
 
 ## Why This Exists
 

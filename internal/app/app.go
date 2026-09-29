@@ -56,11 +56,16 @@ func runServe(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	port := fs.Int("port", defaultPort, "port to listen on; use 0 for a random free port")
+	refresh := fs.Duration("refresh", 5*time.Second, "minimum interval between live report updates, for example 5s or 30s")
 	noCache := fs.Bool("no-cache", false, "disable the disposable local analysis cache")
 	sinceValue := fs.String("since", "", "only include commits on or after YYYY-MM-DD")
 	githubRepo := fs.String("github-api", "", "opt-in GitHub API repository as owner/name")
 	workspaceMode := fs.Bool("workspace", false, "discover and aggregate nested Git repositories")
-	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "since": true, "github-api": true})); err != nil {
+	if err := fs.Parse(normalizeFlagArgs(args, map[string]bool{"port": true, "refresh": true, "since": true, "github-api": true})); err != nil {
+		return 2
+	}
+	if *refresh < time.Millisecond {
+		fmt.Fprintln(stderr, "invalid --refresh: use a duration of at least 1ms, for example --refresh 5s")
 		return 2
 	}
 	opts, err := snapshotOptionsFromFlags(*sinceValue, *noCache, *githubRepo, *workspaceMode)
@@ -70,12 +75,14 @@ func runServe(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 	repo := firstArg(fs.Args(), ".")
 
-	snap, err := snapshot(ctx, repo, opts)
-	if err != nil {
-		fmt.Fprintf(stderr, "analyze %s: %v\n", repo, err)
-		return 1
+	load := func(ctx context.Context) (analyze.Snapshot, error) {
+		snap, err := snapshot(ctx, repo, opts)
+		if err != nil {
+			return analyze.Snapshot{}, fmt.Errorf("analyze %s: %w", repo, err)
+		}
+		return snap, nil
 	}
-	if err := server.Serve(ctx, *port, snap, stdout); err != nil {
+	if err := server.Serve(ctx, *port, *refresh, load, stdout); err != nil {
 		fmt.Fprintf(stderr, "serve: %v\n", err)
 		return 1
 	}
@@ -373,7 +380,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `ginsights - GitHub-style local repository insights
 
 Usage:
-  ginsights serve [repo] [--port 43117] [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
+  ginsights serve [repo] [--port 43117] [--refresh 5s] [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
   ginsights build [repo] --out report [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
   ginsights json [repo] [--since YYYY-MM-DD] [--no-cache] [--workspace] [--github-api owner/name]
   ginsights cache-clear [repo]

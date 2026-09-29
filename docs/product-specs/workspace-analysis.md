@@ -27,6 +27,14 @@ Each discovered Git root is analyzed independently. The workspace snapshot conta
 
 The root repository's working-tree language and test scans stop at nested Git boundaries so nested files are not counted twice.
 
+## Live serving
+
+`serve --workspace` re-discovers Git roots and refreshes their independent snapshots while the dashboard is open. The minimum refresh interval defaults to five seconds and can be changed with `--refresh 30s`. HTML and JSON are updated together, using the existing incremental Git cache unless `--no-cache` is requested. Added and removed repositories appear on the next refresh without restarting the server.
+
+The browser checks a content ETag and reloads only when report content changes. Generation timestamps alone do not cause reloads. A failed refresh preserves the last successful report, displays a retry status, and retries after the refresh interval. Manually reloading the page also refreshes data once that interval has elapsed. An idle server does not repeatedly scan the workspace.
+
+Commit-based metrics require local Git history changes. Language and health signals retain their existing filesystem-based behavior. Static `build` and one-shot `json` output remain snapshots.
+
 ## Offline boundary
 
 Workspace mode remains local-only. It does not infer GitHub repositories from remotes or contact GitHub. `--workspace` and the single-repository `--github-api owner/name` connector cannot be combined; analyze that repository separately when remote metrics are required.

@@ -27,7 +27,7 @@ cmd/ginsights
 - `internal/githubapi`: explicit opt-in GitHub REST API client with env-token handling and redaction.
 - `internal/repository`: filesystem-only discovery of root and nested Git repository boundaries.
 - `internal/report`: render snapshot to self-contained HTML and JSON.
-- `internal/server`: host a local website from a snapshot.
+- `internal/server`: host a local website, reload snapshots through an app-supplied analysis function, and serve live update checks.
 - `internal/doclint`: enforce repo harness/documentation invariants.
 
 ## Dependency rules
@@ -45,10 +45,3 @@ cmd/ginsights
 Raw Git data enters through `internal/gitlog.Commit`. Everything presented to the UI goes through `internal/analyze.Snapshot`. New UI features should first add or extend snapshot fields, then render them.
 
 Workspace mode discovers repositories through `internal/repository`, builds one independent `Snapshot` per Git root, and then produces a workspace `Snapshot` with aggregate metrics plus the retained per-repository snapshots. Aggregation must preserve repository identity for commits and files.
-
-## Future architecture hooks
-
-Keep these as explicit future work, not hidden abstractions:
-
-- richer chart rendering;
-- generated screenshots/video verification harness.

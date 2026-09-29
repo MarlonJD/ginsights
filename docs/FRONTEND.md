@@ -1,6 +1,6 @@
 # Frontend
 
-The current frontend is server-rendered static HTML from `internal/report`.
+The current frontend is server-rendered HTML from `internal/report`. Static exports remain self-contained snapshots. `internal/server` adds a small same-origin live update script only to served dashboards; it checks the report ETag and reloads the page when content changes.
 
 ## Rules
 

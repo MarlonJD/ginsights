@@ -5,8 +5,8 @@ Purpose: make Codex productive quickly without turning this file into a manual. 
 ## Start here
 
 1. Read this file.
-2. Read `ARCHITECTURE.md` for package boundaries.
-3. Read the relevant active plan in `docs/exec-plans/active/`.
+2. Read [ARCHITECTURE.md](ARCHITECTURE.md) for package boundaries.
+3. Follow [docs/PLANS.md](docs/PLANS.md) and read a matching plan in `docs/exec-plans/active/` when one exists.
 4. Run the baseline checks before changing behavior:
    - `go test ./...`
    - `go run ./cmd/ginsights doctor .`
@@ -29,6 +29,7 @@ Adapted from the referenced LLM coding guidelines, but made repo-specific:
 
 - Think before coding. State assumptions inside the plan or PR notes when requirements are ambiguous.
 - Prefer the smallest correct implementation. No speculative framework, plugin, or config layer.
+- Build in working end-to-end increments. Add abstractions and dependencies only for a present requirement or measured problem; a possible future use is insufficient.
 - Make surgical changes. Every changed line should trace to the task or to cleanup caused by that task.
 - Define success criteria before implementation and loop until verified.
 - Do not hide confusion. If blocked, write the missing fact/tool/doc as an explicit follow-up in the plan.
@@ -41,7 +42,8 @@ Adapted from the referenced LLM coding guidelines, but made repo-specific:
 - The repository is the source of truth. If Codex needs to know something later, commit it as Markdown, tests, fixtures, schemas, or code.
 - Keep this file short. Add durable knowledge to `docs/` and link to it.
 - Plans are first-class artifacts. Complex tasks require an active plan with goal, scope, verification, and decision log.
-- Mechanical constraints beat prose. When a rule matters repeatedly, add a test, lint, or doctor check.
+- Reuse native tests and doctor checks. Add a guardrail only for a concrete recurring defect, and remove obsolete paths instead of preserving compatibility scaffolding.
+- Reuse existing docs and commands before adding harness artifacts. Extra checkers, evidence stores, coverage matrices, certification, and maintenance automation require a concrete requested need.
 - Agent-readable output matters. CLI errors should say what failed and how to fix it.
 
 ## Architecture boundaries
@@ -70,9 +72,10 @@ If a check cannot run, record the exact command, error, and reason in the respon
 
 ## Useful docs
 
-- `docs/product-specs/index.md` — product boundary and MVP
-- `docs/exec-plans/active/0001-mvp-github-style-dashboard.md` — next implementation steps
-- `docs/DESIGN.md` — UI direction
-- `docs/QUALITY_SCORE.md` — quality gates
-- `docs/RELIABILITY.md` — performance and failure expectations
-- `docs/SECURITY.md` — local-only and token handling rules
+- [Product specs](docs/product-specs/index.md) — product boundary and MVP
+- [Planning policy](docs/PLANS.md) — plan scope and lifecycle
+- [Design](docs/DESIGN.md) — UI direction
+- [Quality gates](docs/QUALITY_SCORE.md) — native verification and simplicity
+- [Reliability](docs/RELIABILITY.md) — performance and failure expectations
+- [Security](docs/SECURITY.md) — local-only and token handling rules
+- [Harness guidance](docs/references/harness-engineering-notes.md) — minimal adoption and artifact ownership
