@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation verified locally; publication and installed-binary verification are pending.
+Complete. v0.1.2 is published, installed through Homebrew, and verified in a live browser and the Avia workspace.
 
 ## Goal
 
@@ -48,7 +48,7 @@ Make the installed Avia workspace dashboard report current commit and line stati
 
 ## Next actions
 
-Publish the verified source as v0.1.2, update the immutable formula and tap, install, resolve the obsolete command, and verify live refresh and the Avia dashboard.
+None. The verified Avia dashboard is running locally on port 43117 with a 30-second refresh interval and `--no-cache`, leaving component working trees free of new cache files.
 
 ## Local verification results
 
@@ -57,3 +57,17 @@ Publish the verified source as v0.1.2, update the immutable formula and tap, ins
 - Independent review found a test-presence walk that continued after success; returning `filepath.SkipAll` now stops it immediately.
 - The candidate Avia snapshot contains exactly `.`, `apps/surveil`, `shared/auth`, and `shared/data`, with no analysis errors. Every repository's commit, addition, deletion, and net totals matched direct `git log --all --numstat` output. Observed aggregate: 1,195 commits, 1,464,105 additions, 692,604 deletions, net 771,501.
 - The old-source freeze is verified; a current-source partial line-statistics freeze was not reproduced. The release does not claim a cache defect or invalidate correct cached history.
+
+## Distribution and installed verification
+
+- Published source commit `be06251c7cbaaff5be3d017df7d6734eab4b7d5a` as `v0.1.2`. The downloaded archive SHA256 is `26b346d900389d21f72a568f4b972805bbb99508f194235f4d159ea80f0ba43a`.
+- Published source formula metadata in `190d52c` and the Homebrew tap update in `448cb72`. Ruby syntax and `brew audit --strict --formula marlonjd/tap/ginsights` passed before publishing the formula.
+- `brew install marlonjd/tap/ginsights` and `brew test marlonjd/tap/ginsights` passed; `brew list --versions ginsights` reports `0.1.2`.
+- Moved the old source-installed executable into a temporary recovery backup. The default command now resolves to `/opt/homebrew/bin/ginsights`, so later Homebrew upgrades affect the command actually used.
+- The installed binary's live browser scenario advanced from 2 commits, +3/-0, net +3 to 4 commits, +6/-2, net +4 after two nested commits, without manual reload. Browser warnings/errors were empty; served JSON, cached data, and fresh uncached analysis agreed.
+- The installed binary's Avia snapshot again contained exactly four intended repositories and matched raw Git commits/additions/deletions/net totals for each. Its observed aggregate remained 1,195 commits, +1,464,105/-692,604, net +771,501.
+- Closed the disposable browser tab and stopped its server. The intended Avia dashboard is the only task-owned server left running.
+
+## Completion note
+
+The obsolete local installation has been replaced by the current Homebrew command. Workspace statistics exclude disposable release copies, existing live refresh is verified through the installed distribution, and regression tests cover the reported line-total behavior. No unproven cache repair was added and no Avia source changes were made.
