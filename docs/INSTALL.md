@@ -27,7 +27,7 @@ packaging/homebrew/Formula/ginsights.rb
 Stable tap maintenance flow:
 
 ```bash
-version=v0.1.1
+version=v0.1.2
 archive="https://github.com/MarlonJD/ginsights/archive/refs/tags/${version}.tar.gz"
 curl -L "$archive" -o "/tmp/ginsights-${version}.tar.gz"
 shasum -a 256 "/tmp/ginsights-${version}.tar.gz"
@@ -35,7 +35,7 @@ shasum -a 256 "/tmp/ginsights-${version}.tar.gz"
 
 Update the formula `url` and `sha256` only after the tag is published and verify the downloaded digest. Check Ruby syntax, stage the formula in a clean local checkout of `marlonjd/homebrew-tap`, and run `brew audit --strict --formula marlonjd/tap/ginsights` before committing and pushing the tap change. Current Homebrew audits use the formula name rather than a file path. The stable formula must never point at the mutable `main` branch. The optional `head` source may continue to track `main` for explicit `brew install --HEAD` use.
 
-The current stable formula installs `v0.1.1` from its tagged GitHub archive.
+The current stable formula installs `v0.1.2` from its tagged GitHub archive.
 
 Upgrade an existing installation:
 

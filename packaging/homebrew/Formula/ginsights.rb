@@ -1,8 +1,8 @@
 class Ginsights < Formula
   desc "GitHub-style local repository insights as a single Go binary"
   homepage "https://github.com/MarlonJD/ginsights"
-  url "https://github.com/MarlonJD/ginsights/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "656e280a0837c574e5066451e32410ebbf854c868892f311077aa95a7ff24791"
+  url "https://github.com/MarlonJD/ginsights/archive/refs/tags/v0.1.2.tar.gz"
+  sha256 "26b346d900389d21f72a568f4b972805bbb99508f194235f4d159ea80f0ba43a"
   license "GPL-3.0-or-later"
   head "https://github.com/MarlonJD/ginsights.git", branch: "main"
 
