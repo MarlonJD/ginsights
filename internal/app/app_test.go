@@ -319,3 +319,50 @@ func runGit(t *testing.T, repo string, args ...string) {
 		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, string(out))
 	}
 }
+
+func TestWorkspaceCachedLineTotalsMatchFullHistoryAfterMultipleCommits(t *testing.T) {
+	workspace := testGitRepo(t)
+	commitFile(t, workspace, "README.md", "# Workspace\n", "2026-09-20T12:00:00+00:00", "workspace")
+	nested := filepath.Join(workspace, "apps", "surveil")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, nested)
+	commitFile(t, nested, "notes.txt", "one\ntwo\n", "2026-09-21T12:00:00+00:00", "initial")
+	read := func(noCache bool) analyze.Snapshot {
+		t.Helper()
+		args := []string{"json", workspace, "--workspace"}
+		if noCache {
+			args = append(args, "--no-cache")
+		}
+		var stdout, stderr bytes.Buffer
+		if code := Run(args, &stdout, &stderr); code != 0 {
+			t.Fatalf("json exit %d: %s", code, stderr.String())
+		}
+		var snap analyze.Snapshot
+		if err := json.Unmarshal(stdout.Bytes(), &snap); err != nil {
+			t.Fatal(err)
+		}
+		return snap
+	}
+	before := read(false)
+	if before.Totals.Commits != 2 || before.Totals.Additions != 3 || before.Totals.Deletions != 0 || before.Totals.NetLines != 3 {
+		t.Fatalf("initial totals = %+v", before.Totals)
+	}
+	// Multiple missing hashes exercise the incremental collector's batch path.
+	commitFile(t, nested, "notes.txt", "one\nthree\nfour\n", "2026-09-22T12:00:00+00:00", "replace and add")
+	commitFile(t, nested, "notes.txt", "three\nfour\nfive\n", "2026-09-23T12:00:00+00:00", "remove and add")
+	cached, full := read(false), read(true)
+	want := analyze.Totals{Commits: 4, Authors: 1, FilesChanged: 2, Additions: 6, Deletions: 2, NetLines: 4}
+	if cached.Totals != want || full.Totals != want {
+		t.Fatalf("cached = %+v, full = %+v, want %+v", cached.Totals, full.Totals, want)
+	}
+	for i, repo := range cached.Workspace.Repositories {
+		if repo.Snapshot.Totals != full.Workspace.Repositories[i].Snapshot.Totals {
+			t.Fatalf("repository %s differs between cached and full history", repo.RelativePath)
+		}
+	}
+	if again := read(false); again.Totals != want {
+		t.Fatalf("unchanged cache totals = %+v, want %+v", again.Totals, want)
+	}
+}

@@ -358,11 +358,11 @@ func hasTests(repo string) bool {
 	found := false
 	root := filepath.Clean(repo)
 	_ = filepath.WalkDir(repo, func(path string, d os.DirEntry, err error) error {
-		if err != nil || found {
+		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			if path != root && repository.IsRoot(path) {
+			if path != root && (d.Name() == ".state" || repository.IsRoot(path)) {
 				return filepath.SkipDir
 			}
 			name := d.Name()
@@ -373,6 +373,7 @@ func hasTests(repo string) bool {
 		}
 		if strings.HasSuffix(d.Name(), "_test.go") || strings.HasSuffix(d.Name(), ".test.ts") || strings.HasSuffix(d.Name(), ".spec.ts") {
 			found = true
+			return filepath.SkipAll
 		}
 		return nil
 	})

@@ -13,7 +13,7 @@ ginsights json /path/to/workspace --workspace
 
 ## Discovery
 
-Workspace discovery scans for `.git` directory and file markers at the requested root and below it. It does not depend on the parent repository's tracked files, `.gitmodules`, or ignore rules, because a workspace may intentionally ignore nested repositories. Symlinked directory trees are not followed. Git metadata, disposable caches, vendored dependencies, and `node_modules` are pruned from discovery.
+Workspace discovery scans for `.git` directory and file markers at the requested root and below it. It does not depend on the parent repository's tracked files, `.gitmodules`, or ignore rules, because a workspace may intentionally ignore nested repositories. Symlinked directory trees are not followed. Git metadata, disposable caches, `.state` runtime/release copies, vendored dependencies, and `node_modules` are pruned from discovery. `.state` trees also do not contribute language or test-presence signals to their parent repository. A repository inside `.state` can still be analyzed by passing that repository as the explicit command root.
 
 ## Analysis and aggregation
 

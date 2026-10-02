@@ -51,7 +51,7 @@ func DetectLanguages(repo string) []LanguageStat {
 			return nil
 		}
 		if d.IsDir() {
-			if path != root && repository.IsRoot(path) {
+			if path != root && (d.Name() == ".state" || repository.IsRoot(path)) {
 				return filepath.SkipDir
 			}
 			switch d.Name() {

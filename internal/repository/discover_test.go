@@ -45,3 +45,26 @@ func mustMkdir(t *testing.T, path string) {
 		t.Fatal(err)
 	}
 }
+
+func TestDiscoverSkipsDisposableStateButAllowsExplicitRoot(t *testing.T) {
+	workspace := t.TempDir()
+	mustMkdir(t, filepath.Join(workspace, ".git"))
+	mustMkdir(t, filepath.Join(workspace, "apps", "surveil", ".git"))
+	archived := filepath.Join(workspace, ".state", "release", "source")
+	mustMkdir(t, filepath.Join(archived, ".git"))
+	mustMkdir(t, filepath.Join(workspace, "apps", "surveil", ".state", "copy", ".git"))
+	roots, err := Discover(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roots) != 2 {
+		t.Fatalf("roots = %+v, want only workspace and component", roots)
+	}
+	roots, err = Discover(archived)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roots) != 1 || roots[0].RelativePath != "." {
+		t.Fatalf("explicit state repository = %+v", roots)
+	}
+}

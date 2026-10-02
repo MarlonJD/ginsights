@@ -79,7 +79,7 @@ func IsRoot(path string) bool {
 
 func shouldPrune(name string) bool {
 	switch name {
-	case ".git", ".ginsights-cache", "node_modules", "vendor":
+	case ".git", ".ginsights-cache", ".state", "node_modules", "vendor":
 		return true
 	default:
 		return false

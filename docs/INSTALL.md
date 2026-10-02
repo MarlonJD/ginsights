@@ -44,6 +44,15 @@ brew update
 brew upgrade marlonjd/tap/ginsights
 ```
 
+Check which executable your shell uses after upgrading:
+
+```bash
+type -a ginsights
+"$(brew --prefix ginsights)/bin/ginsights" help
+```
+
+A previous source installation at `~/.local/bin/ginsights` can take precedence over Homebrew. Choose one installation and remove the obsolete executable from `PATH`; upgrading Homebrew does not update that independent file. Run the Homebrew executable by its full path until the command resolves to the intended installation.
+
 Restart a running `ginsights serve` process after upgrading so it uses the new binary. Served dashboards check for report changes every five seconds; use `--refresh 30s` for larger workspaces.
 
 ## Shell Installer

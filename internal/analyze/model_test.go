@@ -109,3 +109,27 @@ func benchmarkCommits(count int) []gitlog.Commit {
 	}
 	return commits
 }
+
+func TestDisposableStateDoesNotContributeWorkingTreeSignals(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := filepath.Join(root, ".state", "release")
+	if err := os.MkdirAll(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(state, "copy_test.go"), []byte("package copy\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	languages := DetectLanguages(root)
+	if len(languages) != 1 || languages[0].Bytes != int64(len("package main\n")) {
+		t.Fatalf("languages = %+v, want only main.go", languages)
+	}
+	if hasTests(root) {
+		t.Fatal("disposable state supplied the parent's test signal")
+	}
+	if !hasTests(state) || len(DetectLanguages(state)) != 1 {
+		t.Fatal("explicit state root was not analyzed")
+	}
+}

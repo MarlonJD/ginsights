@@ -27,7 +27,7 @@ func TestDashboardRefreshesHTMLAndJSONTogether(t *testing.T) {
 	}
 	before := requestDashboard(d, http.MethodGet, "/data.json", "")
 	snap.RepoName = "after"
-	snap.Totals.Commits = 2
+	snap.Totals = analyze.Totals{Commits: 2, Additions: 12, Deletions: 3, NetLines: 9}
 	if got := requestDashboard(d, http.MethodGet, "/data.json", ""); got.Body.String() != before.Body.String() || loads != 1 {
 		t.Fatalf("request within interval reloaded data: loads = %d, body = %s", loads, got.Body.String())
 	}
@@ -37,12 +37,22 @@ func TestDashboardRefreshesHTMLAndJSONTogether(t *testing.T) {
 	if err := json.Unmarshal(after.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Totals.Commits != 2 || loads != 2 || after.Header().Get("ETag") == before.Header().Get("ETag") {
+	if got.Totals != snap.Totals || loads != 2 || after.Header().Get("ETag") == before.Header().Get("ETag") {
 		t.Fatalf("refreshed snapshot = %+v, loads = %d, headers = %v", got, loads, after.Header())
 	}
 	html := requestDashboard(d, http.MethodGet, "/", "")
 	if !strings.Contains(html.Body.String(), "after") || !strings.Contains(html.Body.String(), `id="live-status"`) {
 		t.Fatalf("HTML did not reflect the refreshed snapshot and live status")
+	}
+	for _, value := range []string{
+		`<dt>Commits</dt><dd>2</dd>`,
+		`<dt>Lines added</dt><dd class="stat-value positive">+12</dd>`,
+		`<dt>Lines deleted</dt><dd class="stat-value negative">-3</dd>`,
+		`<div class="signal-value positive">&#43;9</div>`,
+	} {
+		if !strings.Contains(html.Body.String(), value) {
+			t.Fatalf("refreshed HTML missing %q", value)
+		}
 	}
 	if html.Header().Get("Cache-Control") != "no-store" || after.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("live responses must not be cached")
